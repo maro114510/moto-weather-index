@@ -20,7 +20,7 @@ export function calculateTouringIndex(weather: Weather): { score: number, breakd
     visibility: visibilityScore(weather.visibility),
     precipitationProbability: precipitationProbabilityScore(weather.precipitationProbability),
     uvIndex: uvIndexScore(weather.uvIndex),
-    airQuality: airQualityScore(undefined), // TODO: pm25
+    airQuality: airQualityScore(weather.airQuality),
   }
   const score = TouringScore.calculate(breakdown)
   return { score, breakdown }
