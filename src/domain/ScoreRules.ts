@@ -55,7 +55,7 @@ const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);
  * - 'overcast': overcast sky, reduced score.
  * - 'fog': poor visibility, very low score.
  * - 'drizzle'/'rain'/'snow': not suitable, 0 points.
- * - 'unknown': fallback score.
+ * - 'unknown': fallback score, 10 points.
  */
 export function weatherScore(condition: WeatherCondition): number {
   switch (condition) {
@@ -83,7 +83,7 @@ export function weatherScore(condition: WeatherCondition): number {
 /**
  * Convert temperature (°C) to score (max 20 points).
  * - Ideal range is 18–25°C, center at 21.5°C.
- * - Deduct 1 points for each 1°C deviation from 21.5.
+ * - Deduct 1 point for each 1°C deviation from 21.5.
  * - Never returns less than 0 or more than 20.
  *   (e.g. 21.5°C = 20pts, 16.5°C/26.5°C = 15pts,
  */
