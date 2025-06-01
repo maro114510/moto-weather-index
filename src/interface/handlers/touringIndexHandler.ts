@@ -9,7 +9,7 @@ import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 export async function getTouringIndex(c: Context) {
   const lat = Number(c.req.query("lat"));
   const lon = Number(c.req.query("lon"));
-  const datetime = c.req.query("datetime") || new Date().toISOString();
+  const datetime = c.req.query("datetime") || new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString();
 
   if (isNaN(lat) || isNaN(lon)) {
     return c.json({ error: "lat and lon are required and must be numbers" }, 400);

@@ -74,7 +74,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       ].join(','),
       start_date: date,
       end_date: date,
-      timezone: 'UTC',
+      timezone: 'JST',
     };
 
     const res = await axios.get('https://api.open-meteo.com/v1/forecast', { params });

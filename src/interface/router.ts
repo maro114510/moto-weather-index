@@ -2,8 +2,12 @@ import { Hono } from "hono";
 import { getTouringIndex, getTouringIndexHistory, postTouringIndexBatch } from "./handlers/touringIndexHandler";
 import { getWeather } from "./handlers/weatherHandler";
 import { healthCheck } from "./handlers/healthHandler";
+import { apiRateLimit } from "./middleware/rateLimitMiddleware";
 
 export const app = new Hono();
+
+// Apply rate limiting to all API routes
+app.use("/api/*", apiRateLimit);
 
 // Create API v1 router
 const apiV1Router = new Hono();
@@ -25,5 +29,5 @@ apiV1Router.route("/weather", weatherRouter);
 // Mount API v1 router
 app.route("/api/v1", apiV1Router);
 
-// Health check endpoint (outside of versioned API)
+// Health check endpoint (outside of versioned API) - no rate limit
 app.get("/health", healthCheck);
