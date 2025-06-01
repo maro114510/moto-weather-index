@@ -30,7 +30,12 @@ import type { AirQualityLevel, WeatherCondition } from "./Weather";
  */
 const WeatherConditionSchema = z.enum([
   "clear",
+  "mostly_clear",
+  "partly_cloudy",
   "cloudy",
+  "overcast",
+  "fog",
+  "drizzle",
   "rain",
   "snow",
   "unknown",
@@ -44,32 +49,43 @@ const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);
 /**
  * Convert weather condition to score (max 30 points).
  * - 'clear': ideal, full 30 points.
+ * - 'mostly_clear': almost ideal, 28 points.
+ * - 'partly_cloudy': good, 23 points.
  * - 'cloudy': less ideal, partial score.
- * - 'rain'/'snow'/'unknown': not suitable, 0 points.
+ * - 'overcast': overcast sky, reduced score.
+ * - 'fog': poor visibility, very low score.
+ * - 'drizzle'/'rain'/'snow': not suitable, 0 points.
+ * - 'unknown': fallback score.
  */
 export function weatherScore(condition: WeatherCondition): number {
-  // Type and value validation
-  WeatherConditionSchema.parse(condition);
-
   switch (condition) {
     case "clear":
-      return 30; // Perfect riding weather
+      return 30;
+    case "mostly_clear":
+      return 28;
+    case "partly_cloudy":
+      return 23;
     case "cloudy":
-      return 10; // Acceptable, but less enjoyable
+      return 15;
+    case "overcast":
+      return 12;
+    case "fog":
+      return 5;
+    case "drizzle":
     case "rain":
     case "snow":
-      return 0; // Unsafe or not enjoyable
-    default:
       return 0;
+    default:
+      return 10; // unknown fallback score
   }
 }
 
 /**
  * Convert temperature (°C) to score (max 20 points).
  * - Ideal range is 18–25°C, center at 21.5°C.
- * - Deduct 2 points for each 1°C deviation from 21.5.
+ * - Deduct 1 points for each 1°C deviation from 21.5.
  * - Never returns less than 0 or more than 20.
- *   (e.g. 21.5°C = 20pts, 16.5°C/26.5°C = 14pts, etc.)
+ *   (e.g. 21.5°C = 20pts, 16.5°C/26.5°C = 15pts,
  */
 export function temperatureScore(temp: number): number {
   // Type and value validation: -50°C to 60°C
@@ -77,7 +93,7 @@ export function temperatureScore(temp: number): number {
 
   const ideal = 21.5;
   const diff = Math.abs(temp - ideal);
-  const score = 20 - diff * 2;
+  const score = 20 - diff * 1; // 1 point per degree deviation
   return Math.max(0, Math.min(20, Math.round(score)));
 }
 /**

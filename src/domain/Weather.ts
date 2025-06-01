@@ -2,11 +2,16 @@ import { z } from "zod";
 
 /**
  * Enum schema for weather condition.
- * Allowed values: 'clear', 'cloudy', 'rain', 'snow', 'unknown'.
+ * Allowed values: 'clear', 'mostly_clear', 'partly_cloudy', 'cloudy', 'overcast', 'fog', 'drizzle', 'rain', 'snow', 'unknown'.
  */
 export const WeatherConditionSchema = z.enum([
   "clear",
+  "mostly_clear",
+  "partly_cloudy",
   "cloudy",
+  "overcast",
+  "fog",
+  "drizzle",
   "rain",
   "snow",
   "unknown",
