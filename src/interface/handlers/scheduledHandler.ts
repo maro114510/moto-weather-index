@@ -1,9 +1,5 @@
 import type { ExecutionContext } from "@cloudflare/workers-types";
-import {
-  createBatchCalculateTouringIndexUsecase,
-  createTouringIndexRepository,
-  createWeatherRepository,
-} from "../../di/container";
+import { createWeatherRepository, createTouringIndexRepository, createBatchCalculateTouringIndexUsecase } from "../../di/container";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
 
 interface Env {
@@ -12,14 +8,11 @@ interface Env {
 }
 
 export async function scheduledHandler(
-  _controller: ScheduledController,
+  controller: ScheduledController,
   env: Env,
-  _ctx: ExecutionContext,
+  ctx: ExecutionContext
 ): Promise<void> {
-  console.log(
-    "Starting scheduled batch calculation at",
-    new Date().toISOString(),
-  );
+  console.log("Starting scheduled batch calculation at", new Date().toISOString());
 
   try {
     // Check if database is available
@@ -34,18 +27,12 @@ export async function scheduledHandler(
     // Create repositories and usecase
     const weatherRepo = createWeatherRepository(env.OPEN_METEO_CACHE);
     const touringIndexRepo = createTouringIndexRepository(env.DB);
-    const batchUsecase = createBatchCalculateTouringIndexUsecase(
-      weatherRepo,
-      touringIndexRepo,
-    );
+    const batchUsecase = createBatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
 
     // Generate target dates
-    const targetDates =
-      BatchCalculateTouringIndexUsecase.generateTargetDates(days);
+    const targetDates = BatchCalculateTouringIndexUsecase.generateTargetDates(days);
 
-    console.log(
-      `Starting batch processing for ${days} days (${targetDates.length} dates)...`,
-    );
+    console.log(`Starting batch processing for ${days} days (${targetDates.length} dates)...`);
 
     // Execute batch processing
     const startTime = Date.now();
@@ -54,13 +41,12 @@ export async function scheduledHandler(
     const duration = endTime - startTime;
 
     console.log(`Batch processing completed in ${duration}ms`);
-    console.log(
-      `Summary: ${result.successful_inserts}/${result.total_processed} successful inserts`,
-    );
+    console.log(`Summary: ${result.successful_inserts}/${result.total_processed} successful inserts`);
 
     if (result.errors.length > 0) {
       console.warn("Batch processing completed with errors:", result.errors);
     }
+
   } catch (error) {
     console.error("Scheduled batch processing failed:", error);
     throw error; // Re-throw to mark the execution as failed

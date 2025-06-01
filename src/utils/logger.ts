@@ -34,14 +34,13 @@ class Logger {
 
   constructor() {
     // Set log level based on environment
-    const envLogLevel = globalThis.process?.env?.LOG_LEVEL || "INFO";
+    const envLogLevel = globalThis.process?.env?.LOG_LEVEL || 'INFO';
     this.setLogLevel(envLogLevel);
   }
 
   setLogLevel(level: string | LogLevel) {
-    if (typeof level === "string") {
-      this.currentLogLevel =
-        LogLevel[level.toUpperCase() as keyof typeof LogLevel] ?? LogLevel.INFO;
+    if (typeof level === 'string') {
+      this.currentLogLevel = LogLevel[level.toUpperCase() as keyof typeof LogLevel] ?? LogLevel.INFO;
     } else {
       this.currentLogLevel = level;
     }
@@ -51,12 +50,7 @@ class Logger {
     return level >= this.currentLogLevel;
   }
 
-  private formatLog(
-    level: LogLevel,
-    message: string,
-    context: LogContext = {},
-    error?: Error,
-  ): LogEntry {
+  private formatLog(level: LogLevel, message: string, context: LogContext = {}, error?: Error): LogEntry {
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level: LogLevel[level],
@@ -64,9 +58,7 @@ class Logger {
       context: {
         ...context,
         // Add environment info if available
-        ...(globalThis.process?.env?.NODE_ENV && {
-          environment: globalThis.process.env.NODE_ENV,
-        }),
+        ...(globalThis.process?.env?.NODE_ENV && { environment: globalThis.process.env.NODE_ENV }),
       },
     };
 
@@ -95,6 +87,7 @@ class Logger {
       case LogLevel.INFO:
         console.info(logString);
         break;
+      case LogLevel.DEBUG:
       default:
         console.log(logString);
         break;
@@ -125,132 +118,60 @@ class Logger {
   apiRequest(method: string, path: string, context: LogContext = {}) {
     this.info(`API Request: ${method} ${path}`, {
       ...context,
-      operation: "api_request",
+      operation: 'api_request',
       method,
       path,
     });
   }
 
-  apiResponse(
-    method: string,
-    path: string,
-    statusCode: number,
-    duration: number,
-    context: LogContext = {},
-  ) {
-    const level =
-      statusCode >= 500
-        ? LogLevel.ERROR
-        : statusCode >= 400
-          ? LogLevel.WARN
-          : LogLevel.INFO;
+  apiResponse(method: string, path: string, statusCode: number, duration: number, context: LogContext = {}) {
+    const level = statusCode >= 500 ? LogLevel.ERROR : statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO;
     const message = `API Response: ${method} ${path} - ${statusCode} (${duration}ms)`;
 
     if (level === LogLevel.ERROR) {
-      this.error(message, {
-        ...context,
-        operation: "api_response",
-        method,
-        path,
-        statusCode,
-        duration,
-      });
+      this.error(message, { ...context, operation: 'api_response', method, path, statusCode, duration });
     } else if (level === LogLevel.WARN) {
-      this.warn(message, {
-        ...context,
-        operation: "api_response",
-        method,
-        path,
-        statusCode,
-        duration,
-      });
+      this.warn(message, { ...context, operation: 'api_response', method, path, statusCode, duration });
     } else {
-      this.info(message, {
-        ...context,
-        operation: "api_response",
-        method,
-        path,
-        statusCode,
-        duration,
-      });
+      this.info(message, { ...context, operation: 'api_response', method, path, statusCode, duration });
     }
   }
 
   externalApiCall(service: string, endpoint: string, context: LogContext = {}) {
     this.info(`External API Call: ${service} ${endpoint}`, {
       ...context,
-      operation: "external_api_call",
+      operation: 'external_api_call',
       service,
       endpoint,
     });
   }
 
-  externalApiResponse(
-    service: string,
-    endpoint: string,
-    statusCode: number,
-    duration: number,
-    context: LogContext = {},
-  ) {
-    const level =
-      statusCode >= 500
-        ? LogLevel.ERROR
-        : statusCode >= 400
-          ? LogLevel.WARN
-          : LogLevel.INFO;
+  externalApiResponse(service: string, endpoint: string, statusCode: number, duration: number, context: LogContext = {}) {
+    const level = statusCode >= 500 ? LogLevel.ERROR : statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO;
     const message = `External API Response: ${service} ${endpoint} - ${statusCode} (${duration}ms)`;
 
     if (level === LogLevel.ERROR) {
-      this.error(message, {
-        ...context,
-        operation: "external_api_response",
-        service,
-        endpoint,
-        statusCode,
-        duration,
-      });
+      this.error(message, { ...context, operation: 'external_api_response', service, endpoint, statusCode, duration });
     } else if (level === LogLevel.WARN) {
-      this.warn(message, {
-        ...context,
-        operation: "external_api_response",
-        service,
-        endpoint,
-        statusCode,
-        duration,
-      });
+      this.warn(message, { ...context, operation: 'external_api_response', service, endpoint, statusCode, duration });
     } else {
-      this.info(message, {
-        ...context,
-        operation: "external_api_response",
-        service,
-        endpoint,
-        statusCode,
-        duration,
-      });
+      this.info(message, { ...context, operation: 'external_api_response', service, endpoint, statusCode, duration });
     }
   }
 
   dbOperation(operation: string, table?: string, context: LogContext = {}) {
-    this.debug(
-      `Database Operation: ${operation}${table ? ` on ${table}` : ""}`,
-      {
-        ...context,
-        operation: "db_operation",
-        dbOperation: operation,
-        table,
-      },
-    );
+    this.debug(`Database Operation: ${operation}${table ? ` on ${table}` : ''}`, {
+      ...context,
+      operation: 'db_operation',
+      dbOperation: operation,
+      table,
+    });
   }
 
-  cacheOperation(
-    operation: string,
-    key: string,
-    hit: boolean,
-    context: LogContext = {},
-  ) {
-    this.debug(`Cache ${operation}: ${key} - ${hit ? "HIT" : "MISS"}`, {
+  cacheOperation(operation: string, key: string, hit: boolean, context: LogContext = {}) {
+    this.debug(`Cache ${operation}: ${key} - ${hit ? 'HIT' : 'MISS'}`, {
       ...context,
-      operation: "cache_operation",
+      operation: 'cache_operation',
       cacheOperation: operation,
       key,
       hit,
@@ -260,7 +181,7 @@ class Logger {
   businessLogic(operation: string, context: LogContext = {}) {
     this.debug(`Business Logic: ${operation}`, {
       ...context,
-      operation: "business_logic",
+      operation: 'business_logic',
       businessOperation: operation,
     });
   }
@@ -270,10 +191,7 @@ class Logger {
 export const logger = new Logger();
 
 // Export utility functions for creating context
-export function createRequestContext(
-  requestId: string,
-  additional: Partial<LogContext> = {},
-): LogContext {
+export function createRequestContext(requestId: string, additional: Partial<LogContext> = {}): LogContext {
   return {
     requestId,
     ...additional,

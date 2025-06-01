@@ -1,9 +1,5 @@
 import type { Context, Next } from "hono";
-import {
-  createRequestContext,
-  generateRequestId,
-  logger,
-} from "../../utils/logger";
+import { logger, generateRequestId, createRequestContext } from "../../utils/logger";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -27,10 +23,7 @@ export async function loggingMiddleware(c: Context, next: Next) {
     method: c.req.method,
     path: c.req.path,
     userAgent: c.req.header("user-agent"),
-    ip:
-      c.req.header("cf-connecting-ip") ||
-      c.req.header("x-forwarded-for") ||
-      "unknown",
+    ip: c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for") || "unknown",
   });
 
   c.set("requestContext", requestContext);
@@ -42,11 +35,7 @@ export async function loggingMiddleware(c: Context, next: Next) {
     await next();
   } catch (error) {
     // Log unhandled errors at middleware level
-    logger.error(
-      "Unhandled error in request processing",
-      requestContext,
-      error as Error,
-    );
+    logger.error("Unhandled error in request processing", requestContext, error as Error);
 
     // Re-throw to let error handling middleware deal with it
     throw error;

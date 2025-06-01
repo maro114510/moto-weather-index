@@ -1,8 +1,8 @@
 import axios from "axios";
-import { APP_CONFIG, getOpenMeteoForecastUrl } from "../constants/appConfig";
 import type { Weather, WeatherCondition } from "../domain/Weather";
-import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
+import { APP_CONFIG, getOpenMeteoForecastUrl } from "../constants/appConfig";
+import { logger } from "../utils/logger";
 
 // Open-Meteo weather code
 function mapWeatherCode(code: number): WeatherCondition {
@@ -16,8 +16,7 @@ function mapWeatherCode(code: number): WeatherCondition {
 
 export class OpenMeteoWeatherRepository implements WeatherRepository {
   private kv?: KVNamespace;
-  private readonly cacheExpirationSeconds =
-    APP_CONFIG.CACHE_EXPIRATION_HOURS * 60 * 60;
+  private readonly cacheExpirationSeconds = APP_CONFIG.CACHE_EXPIRATION_HOURS * 60 * 60;
 
   constructor(kv?: KVNamespace) {
     this.kv = kv;
@@ -64,20 +63,17 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
             cacheDuration,
           });
           return cachedData as Weather;
-        }
-        logger.cacheOperation("get", cacheKey, false, {
-          ...context,
-          cacheDuration,
-        });
-      } catch (error) {
-        logger.warn(
-          "Failed to read from KV cache",
-          {
+        } else {
+          logger.cacheOperation("get", cacheKey, false, {
             ...context,
-            operation: "cache_read_error",
-          },
-          error as Error,
-        );
+            cacheDuration,
+          });
+        }
+      } catch (error) {
+        logger.warn("Failed to read from KV cache", {
+          ...context,
+          operation: "cache_read_error",
+        }, error as Error);
       }
     }
 
@@ -104,14 +100,10 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
           cacheDuration,
         });
       } catch (error) {
-        logger.warn(
-          "Failed to write to KV cache",
-          {
-            ...context,
-            operation: "cache_write_error",
-          },
-          error as Error,
-        );
+        logger.warn("Failed to write to KV cache", {
+          ...context,
+          operation: "cache_write_error",
+        }, error as Error);
       }
     }
 
@@ -238,28 +230,20 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       return weatherData;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        logger.error(
-          "OpenMeteo API request failed",
-          {
-            ...context,
-            operation: "api_request_error",
-            statusCode: error.response?.status,
-            statusText: error.response?.statusText,
-            errorCode: error.code,
-            url: error.config?.url,
-          },
-          error,
-        );
+        logger.error("OpenMeteo API request failed", {
+          ...context,
+          operation: "api_request_error",
+          statusCode: error.response?.status,
+          statusText: error.response?.statusText,
+          errorCode: error.code,
+          url: error.config?.url,
+        }, error);
       } else {
-        logger.error(
-          "Failed to fetch weather data from API",
-          {
-            ...context,
-            operation: "api_fetch_error",
-            errorType: error?.constructor?.name,
-          },
-          error as Error,
-        );
+        logger.error("Failed to fetch weather data from API", {
+          ...context,
+          operation: "api_fetch_error",
+          errorType: error?.constructor?.name,
+        }, error as Error);
       }
 
       throw error;

@@ -7,8 +7,8 @@ import {
 } from "./handlers/touringIndexHandler";
 import { getWeather } from "./handlers/weatherHandler";
 import { authMiddleware } from "./middleware/auth";
-import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
+import { errorHandlingMiddleware } from "./middleware/errorHandling";
 
 export const app = new Hono();
 

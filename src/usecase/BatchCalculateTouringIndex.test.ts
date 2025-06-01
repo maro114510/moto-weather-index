@@ -1,11 +1,6 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, test, expect, beforeEach, mock } from "bun:test";
+import { BatchCalculateTouringIndexUsecase, type Prefecture, type TouringIndexRepository, type WeatherRepository } from "./BatchCalculateTouringIndex";
 import type { Weather } from "../domain/Weather";
-import {
-  BatchCalculateTouringIndexUsecase,
-  type Prefecture,
-  type TouringIndexRepository,
-  type WeatherRepository,
-} from "./BatchCalculateTouringIndex";
 
 describe("BatchCalculateTouringIndexUsecase", () => {
   let mockWeatherRepository: WeatherRepository;
@@ -15,53 +10,35 @@ describe("BatchCalculateTouringIndexUsecase", () => {
   beforeEach(() => {
     // Create fresh mock implementations for each test
     mockWeatherRepository = {
-      getWeather: mock(
-        async (
-          _lat: number,
-          _lon: number,
-          datetime: string,
-        ): Promise<Weather> => {
-          return {
-            datetime,
-            condition: "clear",
-            temperature: 21.5,
-            windSpeed: 2.5,
-            humidity: 50,
-            visibility: 20,
-            precipitationProbability: 0,
-            uvIndex: 3,
-            airQuality: "low",
-          };
-        },
-      ),
+      getWeather: mock(async (lat: number, lon: number, datetime: string): Promise<Weather> => {
+        return {
+          datetime,
+          condition: "clear",
+          temperature: 21.5,
+          windSpeed: 2.5,
+          humidity: 50,
+          visibility: 20,
+          precipitationProbability: 0,
+          uvIndex: 3,
+          airQuality: "low"
+        };
+      })
     };
 
     mockTouringIndexRepository = {
       upsertTouringIndex: mock(async () => {}),
       getAllPrefectures: mock(async (): Promise<Prefecture[]> => {
         return [
-          {
-            id: 1,
-            name_ja: "北海道",
-            name_en: "Hokkaido",
-            latitude: 43.0642,
-            longitude: 141.3468,
-          },
-          {
-            id: 13,
-            name_ja: "東京都",
-            name_en: "Tokyo",
-            latitude: 35.6895,
-            longitude: 139.6917,
-          },
+          { id: 1, name_ja: "北海道", name_en: "Hokkaido", latitude: 43.0642, longitude: 141.3468 },
+          { id: 13, name_ja: "東京都", name_en: "Tokyo", latitude: 35.6895, longitude: 139.6917 }
         ];
-      }),
+      })
     };
 
     // Create fresh usecase instance
     usecase = new BatchCalculateTouringIndexUsecase(
       mockWeatherRepository,
-      mockTouringIndexRepository,
+      mockTouringIndexRepository
     );
   });
 
@@ -78,7 +55,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
 
     test("should include today as first date", () => {
       const dates = BatchCalculateTouringIndexUsecase.generateTargetDates(1);
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split('T')[0];
       expect(dates[0]).toBe(today);
     });
 
@@ -116,9 +93,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(mockWeatherRepository.getWeather).toHaveBeenCalledTimes(4);
 
       // Verify database upsert was called correctly
-      expect(
-        mockTouringIndexRepository.upsertTouringIndex,
-      ).toHaveBeenCalledTimes(4);
+      expect(mockTouringIndexRepository.upsertTouringIndex).toHaveBeenCalledTimes(4);
     });
 
     test("should call weather API with correct parameters", async () => {
@@ -130,14 +105,14 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(mockWeatherRepository.getWeather).toHaveBeenCalledWith(
         43.0642, // Hokkaido latitude
         141.3468, // Hokkaido longitude
-        "2025-06-01T03:00:00Z", // 12:00 JST = 03:00 UTC
+        "2025-06-01T03:00:00Z" // 12:00 JST = 03:00 UTC
       );
 
       // Check second prefecture (Tokyo)
       expect(mockWeatherRepository.getWeather).toHaveBeenCalledWith(
         35.6895, // Tokyo latitude
         139.6917, // Tokyo longitude
-        "2025-06-01T03:00:00Z",
+        "2025-06-01T03:00:00Z"
       );
     });
 
@@ -147,8 +122,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       await usecase.execute(targetDates, 1);
 
       // Verify upsert was called with correct structure
-      const upsertCalls = (mockTouringIndexRepository.upsertTouringIndex as any)
-        .mock.calls;
+      const upsertCalls = (mockTouringIndexRepository.upsertTouringIndex as any).mock.calls;
       expect(upsertCalls).toHaveLength(2);
 
       // Check first call (Hokkaido)
@@ -175,25 +149,22 @@ describe("BatchCalculateTouringIndexUsecase", () => {
 
     test("should handle weather API errors gracefully", async () => {
       // Create new mock that throws error for Tokyo
-      const weatherMock = mock(
-        async (lat: number, _lon: number, datetime: string) => {
-          if (lat === 35.6895) {
-            // Tokyo
-            throw new Error("Weather API failed");
-          }
-          return {
-            datetime,
-            condition: "clear",
-            temperature: 21.5,
-            windSpeed: 2.5,
-            humidity: 50,
-            visibility: 20,
-            precipitationProbability: 0,
-            uvIndex: 3,
-            airQuality: "low",
-          } as Weather;
-        },
-      );
+      const weatherMock = mock(async (lat: number, lon: number, datetime: string) => {
+        if (lat === 35.6895) { // Tokyo
+          throw new Error("Weather API failed");
+        }
+        return {
+          datetime,
+          condition: "clear",
+          temperature: 21.5,
+          windSpeed: 2.5,
+          humidity: 50,
+          visibility: 20,
+          precipitationProbability: 0,
+          uvIndex: 3,
+          airQuality: "low"
+        } as Weather;
+      });
 
       // Replace the mock
       mockWeatherRepository.getWeather = weatherMock;
@@ -208,7 +179,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(result.errors[0]).toMatchObject({
         prefecture_id: 13, // Tokyo
         date: "2025-06-01",
-        error: expect.stringContaining("Weather API failed"),
+        error: expect.stringContaining("Weather API failed")
       });
     });
 
@@ -252,7 +223,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           visibility: 20,
           precipitationProbability: 0,
           uvIndex: 3,
-          airQuality: "low",
+          airQuality: "low"
         } as Weather;
       });
 
