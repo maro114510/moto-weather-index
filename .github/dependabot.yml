@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # - package-ecosystem: "gomod"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "daily"
+  #   reviewers:
+  #     - "maro114510"
+  #   assignees:
+  #     - "maro114510"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "maro114510"
+    assignees:
+      - "maro114510"
