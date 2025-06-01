@@ -5,6 +5,7 @@ import {
   createWeatherRepository,
 } from "../../di/container";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
+import { logger } from "../../utils/logger";
 
 interface Env {
   OPEN_METEO_CACHE?: KVNamespace;
@@ -62,7 +63,11 @@ export async function scheduledHandler(
       console.warn("Batch processing completed with errors:", result.errors);
     }
   } catch (error) {
-    logger.error("Scheduled batch processing failed:", error);
+    logger.error(
+      "Scheduled batch processing failed",
+      { timestamp: new Date().toISOString(), env },
+      error as Error,
+    );
     throw error; // Re-throw to mark the execution as failed
   }
 }

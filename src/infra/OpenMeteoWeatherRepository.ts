@@ -5,11 +5,15 @@ import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
 
 // Open-Meteo weather code
+// doc: https://github.com/open-meteo/open-meteo/issues/287
 function mapWeatherCode(code: number): WeatherCondition {
-  if ([0, 1].includes(code)) return "clear";
-  if ([2, 3, 45, 48].includes(code)) return "cloudy";
-  if ([61, 63, 65, 80, 81, 82, 51, 53, 55, 56, 57].includes(code))
-    return "rain";
+  if (code === 0) return "clear";
+  if (code === 1) return "mostly_clear";
+  if (code === 2) return "partly_cloudy";
+  if (code === 3) return "overcast";
+  if ([45, 48].includes(code)) return "fog";
+  if ([51, 53, 55, 56, 57].includes(code)) return "drizzle";
+  if ([61, 63, 65, 80, 81, 82].includes(code)) return "rain";
   if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
   return "unknown";
 }

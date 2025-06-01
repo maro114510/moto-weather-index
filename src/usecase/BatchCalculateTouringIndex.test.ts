@@ -156,7 +156,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(firstCall).toMatchObject({
         prefecture_id: 1,
         date: "2025-06-01",
-        score: 100, // Perfect weather should give max score
+        score: 100, // Perfect weather should give max score (30+20+15+10+5+10+5+5 = 100)
       });
 
       // Check that weather_factors_json and weather_raw_json are strings
