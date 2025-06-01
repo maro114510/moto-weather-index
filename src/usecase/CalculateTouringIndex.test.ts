@@ -1,3 +1,4 @@
+import { describe, expect, test } from "bun:test";
 import { ZodError } from "zod";
 import {
   type AirQualityLevel,
@@ -56,10 +57,10 @@ describe("CalculateTouringIndex", () => {
         expect(result.breakdown.weather).toBe(30);
       });
 
-      test("should score cloudy weather as 10 points", () => {
+      test("should score cloudy weather as 15 points", () => {
         const weather: Weather = { ...baseWeather, condition: "cloudy" };
         const result = calculateTouringIndex(weather);
-        expect(result.breakdown.weather).toBe(10);
+        expect(result.breakdown.weather).toBe(15);
       });
 
       test("should score rain weather as 0 points", () => {
@@ -74,10 +75,10 @@ describe("CalculateTouringIndex", () => {
         expect(result.breakdown.weather).toBe(0);
       });
 
-      test("should score unknown weather as 0 points", () => {
+      test("should score unknown weather as 10 points", () => {
         const weather: Weather = { ...baseWeather, condition: "unknown" };
         const result = calculateTouringIndex(weather);
-        expect(result.breakdown.weather).toBe(0);
+        expect(result.breakdown.weather).toBe(10);
       });
     });
 
@@ -99,21 +100,21 @@ describe("CalculateTouringIndex", () => {
       });
 
       test("should score temperature boundaries correctly", () => {
-        // Test various temperature boundaries
+        // Test various temperature boundaries based on new logic: 20 - Math.abs(temp - 21.5)
         const testCases = [
-          { temp: -50, expectedScore: 0 }, // Minimum allowed
-          { temp: -10, expectedScore: 0 }, // Very cold
-          { temp: 16.5, expectedScore: 10 }, // 5°C below ideal
-          { temp: 19.5, expectedScore: 16 }, // 2°C below ideal
-          { temp: 20.5, expectedScore: 18 }, // 1°C below ideal
-          { temp: 21.0, expectedScore: 19 }, // 0.5°C below ideal
-          { temp: 21.5, expectedScore: 20 }, // Ideal
-          { temp: 22.0, expectedScore: 19 }, // 0.5°C above ideal
-          { temp: 22.5, expectedScore: 18 }, // 1°C above ideal
-          { temp: 23.5, expectedScore: 16 }, // 2°C above ideal
-          { temp: 26.5, expectedScore: 10 }, // 5°C above ideal
-          { temp: 35, expectedScore: 0 }, // Very hot
-          { temp: 60, expectedScore: 0 }, // Maximum allowed
+          { temp: -50, expectedScore: 0 }, // Too cold, minimum score
+          { temp: -10, expectedScore: 0 }, // Very cold, minimum score
+          { temp: 16.5, expectedScore: 15 }, // 5°C below ideal: 20 - 5 = 15
+          { temp: 19.5, expectedScore: 18 }, // 2°C below ideal: 20 - 2 = 18
+          { temp: 20.5, expectedScore: 19 }, // 1°C below ideal: 20 - 1 = 19
+          { temp: 21.0, expectedScore: 20 }, // 0.5°C below ideal: 20 - 0.5 = 19.5, rounded to 20
+          { temp: 21.5, expectedScore: 20 }, // Ideal: 20 - 0 = 20
+          { temp: 22.0, expectedScore: 20 }, // 0.5°C above ideal: 20 - 0.5 = 19.5, rounded to 20
+          { temp: 22.5, expectedScore: 19 }, // 1°C above ideal: 20 - 1 = 19
+          { temp: 23.5, expectedScore: 18 }, // 2°C above ideal: 20 - 2 = 18
+          { temp: 26.5, expectedScore: 15 }, // 5°C above ideal: 20 - 5 = 15
+          { temp: 35, expectedScore: 7 }, // 13.5°C above ideal: 20 - 13.5 = 6.5, rounded to 7
+          { temp: 60, expectedScore: 0 }, // Too hot, minimum score
         ];
 
         testCases.forEach(({ temp, expectedScore }) => {
@@ -169,15 +170,15 @@ describe("CalculateTouringIndex", () => {
 
       test("should score humidity boundaries correctly", () => {
         const testCases = [
-          { humidity: 0, expectedScore: 0 }, // Minimum
-          { humidity: 25, expectedScore: 5 }, // 25% from ideal
-          { humidity: 40, expectedScore: 8 }, // 10% from ideal
-          { humidity: 45, expectedScore: 9 }, // 5% from ideal
-          { humidity: 50, expectedScore: 10 }, // Ideal
-          { humidity: 55, expectedScore: 9 }, // 5% from ideal
-          { humidity: 60, expectedScore: 8 }, // 10% from ideal
-          { humidity: 75, expectedScore: 5 }, // 25% from ideal
-          { humidity: 100, expectedScore: 0 }, // Maximum
+          { humidity: 0, expectedScore: 0 }, // 10 - 50/5 = 0
+          { humidity: 25, expectedScore: 5 }, // 10 - 25/5 = 5
+          { humidity: 40, expectedScore: 8 }, // 10 - 10/5 = 8
+          { humidity: 45, expectedScore: 9 }, // 10 - 5/5 = 9
+          { humidity: 50, expectedScore: 10 }, // 10 - 0/5 = 10
+          { humidity: 55, expectedScore: 9 }, // 10 - 5/5 = 9
+          { humidity: 60, expectedScore: 8 }, // 10 - 10/5 = 8
+          { humidity: 75, expectedScore: 5 }, // 10 - 25/5 = 5
+          { humidity: 100, expectedScore: 0 }, // 10 - 50/5 = 0
         ];
 
         testCases.forEach(({ humidity, expectedScore }) => {
@@ -201,8 +202,8 @@ describe("CalculateTouringIndex", () => {
 
       test("should score visibility boundaries correctly", () => {
         const testCases = [
-          { visibility: 0, expectedScore: 0 }, // Minimum
-          { visibility: 5.9, expectedScore: 0 }, // Just below poor
+          { visibility: 0, expectedScore: 0 }, // Poor visibility
+          { visibility: 5.9, expectedScore: 0 }, // Just below moderate
           { visibility: 6, expectedScore: 2 }, // Moderate start
           { visibility: 9, expectedScore: 2 }, // Moderate end
           { visibility: 10, expectedScore: 4 }, // Good start
