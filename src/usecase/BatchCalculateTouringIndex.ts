@@ -1,6 +1,6 @@
 import type { Weather } from "../domain/Weather";
-import { calculateTouringIndex } from "./CalculateTouringIndex";
 import { logger } from "../utils/logger";
+import { calculateTouringIndex } from "./CalculateTouringIndex";
 
 export interface Prefecture {
   id: number;
@@ -42,7 +42,7 @@ export interface TouringIndexRepository {
 export class BatchCalculateTouringIndexUsecase {
   constructor(
     private weatherRepository: WeatherRepository,
-    private touringIndexRepository: TouringIndexRepository
+    private touringIndexRepository: TouringIndexRepository,
   ) {
     logger.info("BatchCalculateTouringIndexUsecase initialized", {
       operation: "usecase_init",
@@ -57,7 +57,7 @@ export class BatchCalculateTouringIndexUsecase {
    */
   async execute(
     targetDates: string[],
-    maxRetries: number = 3
+    maxRetries = 3,
   ): Promise<BatchProcessResult> {
     const context = {
       operation: "batch_execute",
@@ -107,11 +107,7 @@ export class BatchCalculateTouringIndexUsecase {
           try {
             logger.debug("Processing prefecture-date combination", itemContext);
 
-            await this.processOnePrefectureDate(
-              prefecture,
-              date,
-              maxRetries
-            );
+            await this.processOnePrefectureDate(prefecture, date, maxRetries);
 
             result.successful_inserts++;
 
@@ -121,7 +117,8 @@ export class BatchCalculateTouringIndexUsecase {
             });
           } catch (error) {
             result.failed_inserts++;
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
 
             result.errors.push({
               prefecture_id: prefecture.id,
@@ -129,18 +126,25 @@ export class BatchCalculateTouringIndexUsecase {
               error: errorMessage,
             });
 
-            logger.error("Failed to process prefecture-date combination", {
-              ...itemContext,
-              operation: "batch_item_error",
-              errorMessage,
-            }, error as Error);
+            logger.error(
+              "Failed to process prefecture-date combination",
+              {
+                ...itemContext,
+                operation: "batch_item_error",
+                errorMessage,
+              },
+              error as Error,
+            );
           }
         }
       }
 
-      const successRate = result.total_processed > 0
-        ? Math.round((result.successful_inserts / result.total_processed) * 100)
-        : 0;
+      const successRate =
+        result.total_processed > 0
+          ? Math.round(
+              (result.successful_inserts / result.total_processed) * 100,
+            )
+          : 0;
 
       logger.info("Batch processing execution completed", {
         ...context,
@@ -156,10 +160,14 @@ export class BatchCalculateTouringIndexUsecase {
 
       return result;
     } catch (error) {
-      logger.error("Batch processing execution failed", {
-        ...context,
-        operation: "batch_execute_failed",
-      }, error as Error);
+      logger.error(
+        "Batch processing execution failed",
+        {
+          ...context,
+          operation: "batch_execute_failed",
+        },
+        error as Error,
+      );
       throw error;
     }
   }
@@ -173,7 +181,7 @@ export class BatchCalculateTouringIndexUsecase {
   private async processOnePrefectureDate(
     prefecture: Prefecture,
     date: string,
-    maxRetries: number
+    maxRetries: number,
   ): Promise<void> {
     const context = {
       operation: "process_prefecture_date",
@@ -215,7 +223,7 @@ export class BatchCalculateTouringIndexUsecase {
         const weatherData = await this.weatherRepository.getWeather(
           prefecture.latitude,
           prefecture.longitude,
-          datetime
+          datetime,
         );
 
         logger.debug("Weather data fetched, calculating touring index", {
@@ -258,29 +266,36 @@ export class BatchCalculateTouringIndexUsecase {
 
         // Success - break retry loop
         return;
-
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < maxRetries) {
           const waitTime = 1000 * attempt;
 
-          logger.warn("Attempt failed, retrying", {
-            ...attemptContext,
-            operation: "prefecture_date_retry",
-            errorMessage: lastError.message,
-            waitTimeMs: waitTime,
-            remainingAttempts: maxRetries - attempt,
-          }, lastError);
+          logger.warn(
+            "Attempt failed, retrying",
+            {
+              ...attemptContext,
+              operation: "prefecture_date_retry",
+              errorMessage: lastError.message,
+              waitTimeMs: waitTime,
+              remainingAttempts: maxRetries - attempt,
+            },
+            lastError,
+          );
 
           // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         } else {
-          logger.error("All retry attempts exhausted", {
-            ...attemptContext,
-            operation: "prefecture_date_all_retries_failed",
-            errorMessage: lastError.message,
-          }, lastError);
+          logger.error(
+            "All retry attempts exhausted",
+            {
+              ...attemptContext,
+              operation: "prefecture_date_all_retries_failed",
+              errorMessage: lastError.message,
+            },
+            lastError,
+          );
         }
       }
     }
@@ -294,7 +309,7 @@ export class BatchCalculateTouringIndexUsecase {
    * @param days Number of days to generate (default: 7)
    * @returns Array of date strings in YYYY-MM-DD format
    */
-  static generateTargetDates(days: number = 7): string[] {
+  static generateTargetDates(days = 7): string[] {
     const dates: string[] = [];
     const today = new Date();
 
@@ -303,7 +318,7 @@ export class BatchCalculateTouringIndexUsecase {
       targetDate.setDate(today.getDate() + i);
 
       // Format as YYYY-MM-DD
-      const dateString = targetDate.toISOString().split('T')[0];
+      const dateString = targetDate.toISOString().split("T")[0];
       dates.push(dateString);
     }
 

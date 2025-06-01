@@ -29,7 +29,9 @@ declare global {
   interface D1Database {
     prepare(query: string): D1PreparedStatement;
     dump(): Promise<ArrayBuffer>;
-    batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
+    batch<T = unknown>(
+      statements: D1PreparedStatement[],
+    ): Promise<D1Result<T>[]>;
     exec(query: string): Promise<D1ExecResult>;
   }
 

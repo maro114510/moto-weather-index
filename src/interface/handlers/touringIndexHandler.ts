@@ -1,12 +1,19 @@
 // src/interface/handlers/touringIndexHandler.ts
 import type { Context } from "hono";
 import { z } from "zod";
-import { createWeatherRepository, createTouringIndexRepository, createBatchCalculateTouringIndexUsecase } from "../../di/container";
-import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
-import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
-import { getTouringIndexSchema, batchParametersSchema } from "../../dao/touringIndexSchemas";
-import { HTTP_STATUS } from "../../constants/httpStatus";
 import { APP_CONFIG } from "../../constants/appConfig";
+import { HTTP_STATUS } from "../../constants/httpStatus";
+import {
+  batchParametersSchema,
+  getTouringIndexSchema,
+} from "../../dao/touringIndexSchemas";
+import {
+  createBatchCalculateTouringIndexUsecase,
+  createTouringIndexRepository,
+  createWeatherRepository,
+} from "../../di/container";
+import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
+import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 import { logger } from "../../utils/logger";
 
 /**
@@ -25,7 +32,8 @@ export async function getTouringIndex(c: Context) {
   });
 
   const { lat, lon } = queryParams;
-  const datetime = queryParams.datetime ||
+  const datetime =
+    queryParams.datetime ||
     new Date(
       new Intl.DateTimeFormat("en-US", {
         timeZone: APP_CONFIG.DEFAULT_TIMEZONE,
@@ -99,7 +107,10 @@ export async function postTouringIndexBatch(c: Context) {
       ...requestContext,
       operation: "batch_db_missing",
     });
-    return c.json({ error: "Database not available" }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return c.json(
+      { error: "Database not available" },
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
   }
 
   // Validate query parameters
@@ -118,10 +129,14 @@ export async function postTouringIndexBatch(c: Context) {
   const kv = c.env?.OPEN_METEO_CACHE;
   const weatherRepo = createWeatherRepository(kv);
   const touringIndexRepo = createTouringIndexRepository(db);
-  const batchUsecase = createBatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
+  const batchUsecase = createBatchCalculateTouringIndexUsecase(
+    weatherRepo,
+    touringIndexRepo,
+  );
 
   // Generate target dates (today + next N days)
-  const targetDates = BatchCalculateTouringIndexUsecase.generateTargetDates(days);
+  const targetDates =
+    BatchCalculateTouringIndexUsecase.generateTargetDates(days);
 
   logger.info("Target dates generated for batch processing", {
     ...requestContext,
@@ -137,9 +152,10 @@ export async function postTouringIndexBatch(c: Context) {
   const endTime = Date.now();
   const duration = endTime - startTime;
 
-  const successRate = result.total_processed > 0
-    ? Math.round((result.successful_inserts / result.total_processed) * 100)
-    : 0;
+  const successRate =
+    result.total_processed > 0
+      ? Math.round((result.successful_inserts / result.total_processed) * 100)
+      : 0;
 
   logger.info("Batch processing completed", {
     ...requestContext,
@@ -172,8 +188,8 @@ export async function postTouringIndexBatch(c: Context) {
       total_processed: result.total_processed,
       successful_inserts: result.successful_inserts,
       failed_inserts: result.failed_inserts,
-      success_rate: successRate
+      success_rate: successRate,
     },
-    errors: result.errors.length > 0 ? result.errors : undefined
+    errors: result.errors.length > 0 ? result.errors : undefined,
   });
 }
