@@ -1,0 +1,57 @@
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task -l --sort none
+
+  dev:
+    desc: "Start development server"
+    cmds:
+      - bun --hot src/index.ts
+
+  lint:
+    desc: "Lint with Biome"
+    cmds:
+      - bunx biome check .
+
+  format:
+    desc: "Format code with Biome"
+    cmds:
+      - bunx biome format .
+
+  test:
+    desc: "Run tests with Bun"
+    cmds:
+      - bun test
+
+  prepare:
+    desc: "Install dependencies"
+    cmds:
+      - bun install
+
+  # Wrangler commands for Cloudflare Workers
+  wrangler:dev:
+    desc: "Start Cloudflare Workers development server"
+    cmds:
+      - wrangler dev
+
+  wrangler:deploy:
+    desc: "Deploy to Cloudflare Workers"
+    cmds:
+      - wrangler deploy
+
+  wrangler:whoami:
+    desc: "Show current Cloudflare account info"
+    cmds:
+      - wrangler whoami
+
+  wrangler:login:
+    desc: "Login to Cloudflare account"
+    cmds:
+      - wrangler login
+
+  wrangler:logout:
+    desc: "Logout from Cloudflare account"
+    cmds:
+      - wrangler logout

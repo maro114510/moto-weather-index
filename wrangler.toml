@@ -1,0 +1,8 @@
+name = 'moto-weather-index'
+main = 'src/worker.ts'
+compatibility_date = '2025-06-01'
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "OPEN_METEO_CACHE"
+id = "489913e659dd4567b61be0b650c6fd1a"
