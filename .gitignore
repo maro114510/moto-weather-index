@@ -38,6 +38,7 @@ out
 node_modules/
 jspm_packages/
 bun.lockb
+.wrangler/
 
 ### macOS ###
 # General

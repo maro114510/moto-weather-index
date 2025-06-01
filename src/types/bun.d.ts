@@ -14,3 +14,13 @@ declare const Bun: {
     }
   }): void
 };
+
+// Make this file a module by adding an export
+export {};
+
+// Cloudflare Workers types
+declare global {
+  interface Env {
+    OPEN_METEO_CACHE: KVNamespace;
+  }
+}
