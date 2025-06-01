@@ -28,7 +28,7 @@ import type { AirQualityLevel, WeatherCondition } from "./Weather";
 /**
  * Zod schema for weather condition.
  */
-const WeatherConditionSchema = z.enum([
+const _WeatherConditionSchema = z.enum([
   "clear",
   "mostly_clear",
   "partly_cloudy",
