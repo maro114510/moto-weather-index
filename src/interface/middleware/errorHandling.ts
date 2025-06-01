@@ -46,7 +46,7 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
       const statusCode = error.status as number;
       const message = (error as any).message || "Unknown error";
 
-      if (statusCode >= 500) {
+      if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
         // Server errors - log as error
         logger.error(
           "Server error",
@@ -58,7 +58,7 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
           },
           error as unknown as Error,
         );
-      } else if (statusCode >= 400) {
+      } else if (statusCode >= HTTP_STATUS.BAD_REQUEST) {
         // Client errors - log as warning
         logger.warn(
           "Client error",
