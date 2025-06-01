@@ -1,14 +1,11 @@
-import { Hono } from 'hono';
-import { getTouringIndex } from './interface/handler';
+import { app } from "./interface/router";
+import { serve } from '@hono/node-server';
 
-const app = new Hono();
+const port = process.env.PORT || 3000;
 
-app.get('/weather', getTouringIndex);
+serve({
+  fetch: app.fetch,
+  port: port as number,
+});
 
-if (import.meta.main) {
-  Bun.serve({
-    fetch: app.fetch,
-    port: 3000,
-  })
-  console.log('🚀 Touring Weather API running at http://localhost:3000')
-}
+console.log("Server is running on http://localhost:" + port);
