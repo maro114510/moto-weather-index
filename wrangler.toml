@@ -1,8 +1,19 @@
 name = 'moto-weather-index'
 main = 'src/worker.ts'
-compatibility_date = '2025-06-01'
+compatibility_date = '2025-05-08'
 compatibility_flags = ["nodejs_compat"]
+
+[vars]
+LOG_LEVEL = "INFO"  # DEBUG, INFO, WARN, ERROR
+
+[triggers]
+crons = ["0 19 * * *"]  # UTC 19:00 = JST 4:00
 
 [[kv_namespaces]]
 binding = "OPEN_METEO_CACHE"
 id = "489913e659dd4567b61be0b650c6fd1a"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "moto-weather-db"
+database_id = "4272ce42-0914-4af3-8323-c3569b5595a1"

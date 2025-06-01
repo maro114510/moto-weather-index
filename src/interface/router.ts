@@ -6,8 +6,15 @@ import {
   postTouringIndexBatch,
 } from "./handlers/touringIndexHandler";
 import { getWeather } from "./handlers/weatherHandler";
+import { authMiddleware } from "./middleware/auth";
+import { errorHandlingMiddleware } from "./middleware/errorHandling";
+import { loggingMiddleware } from "./middleware/logging";
 
 export const app = new Hono();
+
+// Apply global middleware
+app.use("*", loggingMiddleware);
+app.use("*", errorHandlingMiddleware);
 
 // Create API v1 router
 const apiV1Router = new Hono();
@@ -16,7 +23,8 @@ const apiV1Router = new Hono();
 const touringIndexRouter = new Hono();
 touringIndexRouter.get("/", getTouringIndex);
 touringIndexRouter.get("/history", getTouringIndexHistory);
-touringIndexRouter.post("/batch", postTouringIndexBatch);
+// Apply authentication middleware only to batch endpoint
+touringIndexRouter.post("/batch", authMiddleware, postTouringIndexBatch);
 
 // Create sub-router for weather related endpoints
 const weatherRouter = new Hono();
