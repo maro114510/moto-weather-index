@@ -125,6 +125,11 @@ undefined: 5 points // Assume best case
 - **Production**: `https://moto-weather-index.stelzen.dev`
 - **Local**: `http://localhost:3000`
 
+### Interactive Documentation
+
+- **Swagger UI**: `/doc` - Interactive API documentation
+- **OpenAPI Spec**: `/specification` - OpenAPI 3.0 specification
+
 ### Endpoints
 
 #### GET `/health`
@@ -201,67 +206,162 @@ Calculate touring comfort index for a location.
 
 #### GET `/api/v1/touring-index/history`
 
-*Coming soon* - Historical touring index data
+Get historical touring index data.
+
+**Parameters:**
+
+- `lat` (required): Latitude (-90 to 90)
+- `lon` (required): Longitude (-180 to 180)
+
+**Response:**
+
+```json
+{
+  "message": "History feature not implemented yet"
+}
+```
+
+*Note: This endpoint is implemented as a stub and will be enhanced in future versions.*
 
 #### POST `/api/v1/touring-index/batch`
 
-*Coming soon* - Batch calculation for multiple locations
+**🔐 Authentication Required**
 
-## 🔧 Tech Stack
+Execute batch calculation for all Japanese prefectures for multiple days. This endpoint requires HMAC-SHA256 authentication.
 
-- **Runtime**: Bun.js
-- **Framework**: Hono (lightweight web framework)
-- **Language**: TypeScript
-- **Validation**: Zod
-- **Weather API**: Open-Meteo
-- **Deployment**: Cloudflare Workers
-- **Cache**: Cloudflare KV Store
-- **Testing**: Bun test
-- **Linting**: Biome
+**Authentication Headers:**
 
-## 🏗️ Architecture
+- `X-Touring-Auth`: HMAC-SHA256 signature
+- `X-Timestamp`: Current timestamp (ISO 8601)
 
-```bash
-src/
-├── domain/              # Business logic and core models
-│   ├── Weather.ts       # Weather data types and validation
-│   ├── ScoreRules.ts    # Scoring calculation functions
-│   └── TouringScore.ts  # Score aggregation logic
-├── usecase/             # Application use cases
-│   └── CalculateTouringIndex.ts
-├── infra/               # External service integrations
-│   ├── WeatherRepository.ts
-│   └── OpenMeteoWeatherRepository.ts
-├── interface/           # HTTP interface layer
-│   ├── router.ts        # Route definitions
-│   └── handlers/        # Request handlers
-├── di/                  # Dependency injection
-└── types/               # Type definitions
+**Parameters:**
+
+- `days` (optional): Number of days to calculate (1-30, default: 7)
+- `maxRetries` (optional): Maximum retry attempts (1-10, default: 3)
+
+**Response:**
+
+```json
+{
+  "status": "completed",
+  "duration_ms": 15432,
+  "target_dates": ["2025-06-01", "2025-06-02", "2025-06-03"],
+  "summary": {
+    "total_processed": 141,
+    "successful_inserts": 138,
+    "failed_inserts": 3,
+    "success_rate": 98
+  },
+  "errors": [
+    "Prefecture 01 (2025-06-01): Weather data unavailable"
+  ]
+}
 ```
 
-## 🚀 Getting Started
+**Authentication Example:**
 
-### Prerequisites
+```bash
+# Calculate HMAC signature
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+signature=$(echo -n "$timestamp" | openssl dgst -sha256 -hmac "$BATCH_SECRET" -binary | base64)
 
-- [Bun](https://bun.sh/) (latest version)
-- [Cloudflare account](https://cloudflare.com/) (for deployment)
+# Make authenticated request
+curl -X POST "https://moto-weather-index.stelzen.dev/api/v1/touring-index/batch?days=7" \
+  -H "X-Touring-Auth: $signature" \
+  -H "X-Timestamp: $timestamp"
+```
+
+## 🛠️ Tech Stack
+
+### Core Technologies
+
+- **Runtime**: [Bun](https://bun.sh/) - Fast JavaScript runtime and package manager
+- **Framework**: [Hono](https://hono.dev/) - Lightweight web framework for Cloudflare Workers
+- **Language**: TypeScript with strict type checking
+- **Validation**: [Zod](https://zod.dev/) - Schema validation and type safety
+
+### API & Documentation
+
+- **OpenAPI**: [@hono/zod-openapi](https://github.com/honojs/middleware/tree/main/packages/zod-openapi) - Type-safe OpenAPI 3.0 integration
+- **Documentation**: [Swagger UI](https://swagger.io/tools/swagger-ui/) - Interactive API documentation
+- **HTTP Client**: [Axios](https://axios-http.com/) - Promise-based HTTP client
+
+### Infrastructure & Deployment
+
+- **Platform**: [Cloudflare Workers](https://workers.cloudflare.com/) - Serverless edge computing
+- **Database**: [Cloudflare D1](https://developers.cloudflare.com/d1/) - SQLite-based serverless database
+- **Cache**: [Cloudflare KV](https://developers.cloudflare.com/kv/) - Global key-value storage
+- **Deployment**: [Wrangler](https://developers.cloudflare.com/workers/wrangler/) - Cloudflare Workers CLI
+
+### External APIs
+
+- **Weather Data**: [Open-Meteo API](https://open-meteo.com/) - Free weather forecast API
+- **Prefecture Data**: Static Japanese prefecture coordinates
+
+### Development Tools
+
+- **Linting**: [Biome](https://biomejs.dev/) - Fast formatter and linter
+- **Testing**: [Bun Test](https://bun.sh/docs/cli/test) - Built-in test runner
+- **Task Runner**: [Task](https://taskfile.dev/) - Modern task runner
+- **CI/CD**: GitHub Actions with automated deployment
+
+### Monitoring & Logging
+
+- **Structured Logging**: Custom logging utilities with different log levels
+- **Error Handling**: Comprehensive middleware for error tracking and response
+- **Request Tracking**: Unique request IDs and performance monitoring
+- **Authentication**: HMAC-SHA256 signature-based authentication for batch operations
+
+## 🌐 Deployment
+
+### Cloudflare Workers
+
+The API is deployed on Cloudflare Workers with the following configuration:
+
+#### Automatic Scheduled Tasks
+
+- **Cron Schedule**: Daily at 04:00 JST (19:00 UTC)
+- **Operation**: Batch calculation for all Japanese prefectures (next 7 days)
+- **Retry Logic**: Up to 3 attempts per failed operation
+
+#### Environment Configuration
+
+```toml
+# wrangler.toml
+name = 'moto-weather-index'
+main = 'src/worker.ts'
+compatibility_date = '2025-05-08'
+
+[vars]
+LOG_LEVEL = "INFO"
+
+[triggers]
+crons = ["0 19 * * *"]  # Daily at JST 4:00
+
+[[kv_namespaces]]
+binding = "OPEN_METEO_CACHE"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "moto-weather-db"
+```
+
+#### Required Environment Variables
+
+- `BATCH_SECRET`: HMAC secret for batch endpoint authentication
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
 
 ### Local Development
 
-1. **Clone the repository**
+1. **Clone and setup**
 
    ```bash
    git clone https://github.com/maro114510/moto-weather-index.git
    cd moto-weather-index
-   ```
-
-2. **Install dependencies**
-
-   ```bash
    bun install
    ```
 
-3. **Start development server**
+2. **Start development server**
 
    ```bash
    bun run dev
@@ -269,145 +369,37 @@ src/
    task dev
    ```
 
-4. **Test the API**
+3. **Access local API**
 
-   ```bash
-   curl "http://localhost:3000/api/v1/touring-index?lat=35.6785&lon=139.6823"
-   ```
+   - API: `http://localhost:3000`
+   - Swagger UI: `http://localhost:3000/doc`
+   - Health check: `http://localhost:3000/health`
 
-### Testing
+### Deployment Commands
+
+```bash
+# Login to Cloudflare
+task wrangler:login
+
+# Deploy to production
+task wrangler:deploy
+
+# Start local Workers development
+task wrangler:dev
+```
+
+### Testing & Quality Assurance
 
 ```bash
 # Run all tests
 bun test
 
-# Run with Task
-task test
-```
-
-### Linting and Formatting
-
-```bash
-# Check code quality
+# Lint code
 task lint
 
 # Format code
 task format
+
+# Fix lint issues
+task lint:fix
 ```
-
-## 🌐 Deployment
-
-### Cloudflare Workers
-
-1. **Login to Cloudflare**
-
-   ```bash
-   task wrangler:login
-   ```
-
-2. **Deploy**
-
-   ```bash
-   task wrangler:deploy
-   ```
-
-### Environment Variables
-
-Configure in `wrangler.toml`:
-
-```toml
-[vars]
-# Add any environment variables here
-
-[[kv_namespaces]]
-binding = "OPEN_METEO_CACHE"
-id = "your-kv-namespace-id"
-```
-
-## 📊 Data Validation
-
-All input data is validated using Zod schemas with the following constraints:
-
-- **Temperature**: -50°C to 60°C
-- **Wind Speed**: 0 to 50 m/s
-- **Humidity**: 0% to 100%
-- **Visibility**: 0 to 100 km
-- **Precipitation Probability**: 0% to 100%
-- **UV Index**: 0 to 20
-- **Weather Condition**: clear, cloudy, rain, snow, unknown
-- **Air Quality**: low, medium, high
-
-## 🧪 Example Usage
-
-### Perfect Touring Conditions
-
-```bash
-curl "https://moto-weather-index.stelzen.dev/api/v1/touring-index?lat=35.6785&lon=139.6823"
-```
-
-Response for ideal conditions:
-
-```json
-{
-  "location": { "lat": 35.6785, "lon": 139.6823 },
-  "datetime": "2025-06-01T12:00:00Z",
-  "score": 100,
-  "factors": {
-    "weather": 30,        // Clear skies
-    "temperature": 20,    // 21.5°C (ideal)
-    "wind": 15,          // 2.5 m/s (gentle breeze)
-    "humidity": 10,      // 50% (comfortable)
-    "visibility": 5,     // 20km (excellent)
-    "precipitationProbability": 10,  // 0% (no rain)
-    "uvIndex": 5,        // 3 (safe)
-    "airQuality": 5      // Low pollution
-  }
-}
-```
-
-### Poor Touring Conditions
-
-Response for bad weather:
-
-```json
-{
-  "score": 0,
-  "factors": {
-    "weather": 0,        // Snow/rain
-    "temperature": 0,    // Too cold/hot
-    "wind": 0,          // Too windy
-    "humidity": 0,      // Too humid/dry
-    "visibility": 0,    // Poor visibility
-    "precipitationProbability": 0,  // High chance of rain
-    "uvIndex": 0,       // Dangerous UV
-    "airQuality": 0     // Poor air quality
-  }
-}
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run `task lint` and `task test`
-6. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- [Open-Meteo](https://open-meteo.com/) for providing free weather API
-- [Cloudflare Workers](https://workers.cloudflare.com/) for serverless hosting
-- Motorcycle touring community for inspiration and requirements
-
-## 📞 Support
-
-For issues and questions:
-
-- Open an issue on GitHub
-- Check existing documentation
-- Review the test files for usage examples
