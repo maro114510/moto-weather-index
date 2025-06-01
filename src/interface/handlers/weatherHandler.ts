@@ -1,6 +1,6 @@
 // src/interface/handlers/weatherHandler.ts
 import { Context } from "hono";
-import { weatherRepository } from "../../di/container";
+import { createWeatherRepository } from "../../di/container";
 
 /**
  * Handler for GET /weather
@@ -15,7 +15,11 @@ export async function getWeather(c: Context) {
   }
 
   try {
-    const weather = await weatherRepository.getWeather(lat, lon, datetime);
+    // Get KV namespace from environment
+    const kv = c.env?.OPEN_METEO_CACHE;
+    const weatherRepo = createWeatherRepository(kv);
+
+    const weather = await weatherRepo.getWeather(lat, lon, datetime);
     return c.json(weather);
   } catch (e: any) {
     return c.json({ error: e.message }, 500);

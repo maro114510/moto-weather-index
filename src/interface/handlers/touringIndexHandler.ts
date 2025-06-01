@@ -1,6 +1,6 @@
 // src/interface/handlers/touringIndexHandler.ts
 import { Context } from "hono";
-import { weatherRepository } from "../../di/container";
+import { createWeatherRepository } from "../../di/container";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 
 /**
@@ -16,7 +16,11 @@ export async function getTouringIndex(c: Context) {
   }
 
   try {
-    const weather = await weatherRepository.getWeather(lat, lon, datetime);
+    // Get KV namespace from environment
+    const kv = c.env?.OPEN_METEO_CACHE;
+    const weatherRepo = createWeatherRepository(kv);
+
+    const weather = await weatherRepo.getWeather(lat, lon, datetime);
     const { score, breakdown } = calculateTouringIndex(weather);
     return c.json({
       location: { lat, lon },
