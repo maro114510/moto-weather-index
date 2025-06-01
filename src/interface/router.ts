@@ -1,4 +1,5 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { swaggerUI } from "@hono/swagger-ui";
 import { healthCheck } from "./handlers/healthHandler";
 import {
   getTouringIndex,
@@ -9,33 +10,45 @@ import { getWeather } from "./handlers/weatherHandler";
 import { authMiddleware } from "./middleware/auth";
 import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
+import {
+  healthRoute,
+  weatherRoute,
+  touringIndexRoute,
+  touringIndexHistoryRoute,
+  touringIndexBatchRoute,
+} from "./routes/openapi";
 
-export const app = new Hono();
+export const app = new OpenAPIHono();
 
 // Apply global middleware
 app.use("*", loggingMiddleware);
 app.use("*", errorHandlingMiddleware);
 
-// Create API v1 router
-const apiV1Router = new Hono();
+// Register OpenAPI routes
+app.openapi(healthRoute, healthCheck);
+app.openapi(weatherRoute, getWeather);
+app.openapi(touringIndexRoute, getTouringIndex);
+app.openapi(touringIndexHistoryRoute, getTouringIndexHistory);
 
-// Create sub-router for touring-index related endpoints
-const touringIndexRouter = new Hono();
-touringIndexRouter.get("/", getTouringIndex);
-touringIndexRouter.get("/history", getTouringIndexHistory);
 // Apply authentication middleware only to batch endpoint
-touringIndexRouter.post("/batch", authMiddleware, postTouringIndexBatch);
+app.use("/api/v1/touring-index/batch", authMiddleware);
+app.openapi(touringIndexBatchRoute, postTouringIndexBatch);
 
-// Create sub-router for weather related endpoints
-const weatherRouter = new Hono();
-weatherRouter.get("/", getWeather);
+// OpenAPI documentation endpoint
+app.doc("/specification", {
+  openapi: "3.0.0",
+  info: {
+    title: "Moto Weather Index API",
+    version: "1.0.0",
+    description: "API for calculating motorcycle touring weather index based on weather conditions",
+  },
+  servers: [
+    {
+      url: "http://localhost:3000",
+      description: "Development server",
+    },
+  ],
+});
 
-// Mount sub-routers to API v1
-apiV1Router.route("/touring-index", touringIndexRouter);
-apiV1Router.route("/weather", weatherRouter);
-
-// Mount API v1 router
-app.route("/api/v1", apiV1Router);
-
-// Health check endpoint (outside of versioned API)
-app.get("/health", healthCheck);
+// Swagger UI endpoint
+app.get("/doc", swaggerUI({ url: "/specification" }));

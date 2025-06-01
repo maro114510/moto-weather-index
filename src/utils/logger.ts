@@ -1,3 +1,5 @@
+import { HTTP_STATUS } from "../constants/httpStatus";
+
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -139,9 +141,9 @@ class Logger {
     context: LogContext = {},
   ) {
     const level =
-      statusCode >= 500
+      statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR
         ? LogLevel.ERROR
-        : statusCode >= 400
+        : statusCode >= HTTP_STATUS.BAD_REQUEST
           ? LogLevel.WARN
           : LogLevel.INFO;
     const message = `API Response: ${method} ${path} - ${statusCode} (${duration}ms)`;
@@ -193,9 +195,9 @@ class Logger {
     context: LogContext = {},
   ) {
     const level =
-      statusCode >= 500
+      statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR
         ? LogLevel.ERROR
-        : statusCode >= 400
+        : statusCode >= HTTP_STATUS.BAD_REQUEST
           ? LogLevel.WARN
           : LogLevel.INFO;
     const message = `External API Response: ${service} ${endpoint} - ${statusCode} (${duration}ms)`;

@@ -14,42 +14,52 @@ export async function getWeather(c: Context) {
 
   logger.businessLogic("get_weather_start", requestContext);
 
-  // Validate query parameters
-  const queryParams = getWeatherSchema.parse({
-    lat: c.req.query("lat"),
-    lon: c.req.query("lon"),
-    datetime: c.req.query("datetime"),
-  });
+  try {
+    // Validate query parameters
+    const queryParams = getWeatherSchema.parse({
+      lat: c.req.query("lat"),
+      lon: c.req.query("lon"),
+      datetime: c.req.query("datetime"),
+    });
 
-  const { lat, lon } = queryParams;
-  const datetime = queryParams.datetime || new Date().toISOString();
+    const { lat, lon } = queryParams;
+    const datetime = queryParams.datetime || new Date().toISOString();
 
-  logger.info("Processing weather request", {
-    ...requestContext,
-    operation: "weather_request",
-    location: { lat, lon },
-    datetime,
-    datetimeSource: queryParams.datetime ? "provided" : "auto_generated",
-  });
+    logger.info("Processing weather request", {
+      ...requestContext,
+      operation: "weather_request",
+      location: { lat, lon },
+      datetime,
+      datetimeSource: queryParams.datetime ? "provided" : "auto_generated",
+    });
 
-  // Get KV namespace from environment
-  const kv = c.env?.OPEN_METEO_CACHE;
-  const weatherRepo = createWeatherRepository(kv);
+    // Get KV namespace from environment
+    const kv = c.env?.OPEN_METEO_CACHE;
+    const weatherRepo = createWeatherRepository(kv);
 
-  const weather = await weatherRepo.getWeather(lat, lon, datetime);
+    const weather = await weatherRepo.getWeather(lat, lon, datetime);
 
-  logger.info("Weather data retrieved successfully", {
-    ...requestContext,
-    operation: "weather_success",
-    location: { lat, lon },
-    datetime,
-    weather: {
-      condition: weather.condition,
-      temperature: weather.temperature,
-      windSpeed: weather.windSpeed,
-      humidity: weather.humidity,
-    },
-  });
+    logger.info("Weather data retrieved successfully", {
+      ...requestContext,
+      operation: "weather_success",
+      location: { lat, lon },
+      datetime,
+      weather: {
+        condition: weather.condition,
+        temperature: weather.temperature,
+        windSpeed: weather.windSpeed,
+        humidity: weather.humidity,
+      },
+    });
 
-  return c.json(weather);
+    return c.json(weather, HTTP_STATUS.OK);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errorMessage = error.errors
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join(", ");
+      return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+    }
+    throw error;
+  }
 }
