@@ -1,1 +1,6 @@
-{ "dependencies": { "axios": "^1.9.0", "hono": "^4.7.11", "ioredis": "^5.6.1", "zod": "^3.25.46" } }
+{
+  "dependencies": { "axios": "^1.9.0", "hono": "^4.7.11", "ioredis": "^5.6.1", "zod": "^3.25.46" },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

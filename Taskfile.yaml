@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  dev:
+    desc: "Start development server"
+    cmds:
+      - bun run src/index.ts
+
+  lint:
+    desc: "Lint with Biome"
+    cmds:
+      - bunx biome check .
+
+  format:
+    desc: "Format code with Biome"
+    cmds:
+      - bunx biome format .
+
+  test:
+    desc: "Run tests with Bun"
+    cmds:
+      - bun test
+
+  prepare:
+    desc: "Install dependencies"
+    cmds:
+      - bun install
