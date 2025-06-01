@@ -1,7 +1,11 @@
 import { Hono } from "hono";
-import { getTouringIndex, getTouringIndexHistory, postTouringIndexBatch } from "./handlers/touringIndexHandler";
-import { getWeather } from "./handlers/weatherHandler";
 import { healthCheck } from "./handlers/healthHandler";
+import {
+  getTouringIndex,
+  getTouringIndexHistory,
+  postTouringIndexBatch,
+} from "./handlers/touringIndexHandler";
+import { getWeather } from "./handlers/weatherHandler";
 
 export const app = new Hono();
 

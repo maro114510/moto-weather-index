@@ -26,7 +26,7 @@ export type AirQualityLevel = z.infer<typeof AirQualityLevelSchema>;
  */
 export const WeatherSchema = z.object({
   // ISO8601 date string
-  datetime: z.string().refine((v) => !isNaN(Date.parse(v)), {
+  datetime: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
     message: "datetime must be a valid ISO8601 string",
   }),
 

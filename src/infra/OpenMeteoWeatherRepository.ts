@@ -1,14 +1,15 @@
-import axios from 'axios';
-import { Weather, WeatherCondition } from '../domain/Weather';
-import { WeatherRepository } from './WeatherRepository';
+import axios from "axios";
+import type { Weather, WeatherCondition } from "../domain/Weather";
+import type { WeatherRepository } from "./WeatherRepository";
 
 // Open-Meteo weather code
 function mapWeatherCode(code: number): WeatherCondition {
-  if ([0, 1].includes(code)) return 'clear';
-  if ([2, 3, 45, 48].includes(code)) return 'cloudy';
-  if ([61, 63, 65, 80, 81, 82, 51, 53, 55, 56, 57].includes(code)) return 'rain';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
-  return 'unknown';
+  if ([0, 1].includes(code)) return "clear";
+  if ([2, 3, 45, 48].includes(code)) return "cloudy";
+  if ([61, 63, 65, 80, 81, 82, 51, 53, 55, 56, 57].includes(code))
+    return "rain";
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
+  return "unknown";
 }
 
 export class OpenMeteoWeatherRepository implements WeatherRepository {
@@ -23,18 +24,22 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
     return `weather:${lat}:${lon}:${datetime}`;
   }
 
-  async getWeather(lat: number, lon: number, datetime: string): Promise<Weather> {
+  async getWeather(
+    lat: number,
+    lon: number,
+    datetime: string,
+  ): Promise<Weather> {
     const cacheKey = this.generateCacheKey(lat, lon, datetime);
 
     // Try to get from cache first
     if (this.kv) {
       try {
-        const cachedData = await this.kv.get(cacheKey, 'json');
+        const cachedData = await this.kv.get(cacheKey, "json");
         if (cachedData) {
           return cachedData as Weather;
         }
       } catch (error) {
-        console.warn('Failed to read from KV cache:', error);
+        console.warn("Failed to read from KV cache:", error);
       }
     }
 
@@ -45,17 +50,21 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
     if (this.kv) {
       try {
         await this.kv.put(cacheKey, JSON.stringify(weather), {
-          expirationTtl: this.cacheExpirationSeconds
+          expirationTtl: this.cacheExpirationSeconds,
         });
       } catch (error) {
-        console.warn('Failed to write to KV cache:', error);
+        console.warn("Failed to write to KV cache:", error);
       }
     }
 
     return weather;
   }
 
-  private async fetchWeatherFromAPI(lat: number, lon: number, datetime: string): Promise<Weather> {
+  private async fetchWeatherFromAPI(
+    lat: number,
+    lon: number,
+    datetime: string,
+  ): Promise<Weather> {
     const date = datetime.slice(0, 10);
     const hour = Number(datetime.slice(11, 13));
 
@@ -63,26 +72,31 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       latitude: lat,
       longitude: lon,
       hourly: [
-        'temperature_2m',
-        'relative_humidity_2m',
-        'windspeed_10m',
-        'visibility',
-        'precipitation_probability',
-        'weathercode',
-        'uv_index',
+        "temperature_2m",
+        "relative_humidity_2m",
+        "windspeed_10m",
+        "visibility",
+        "precipitation_probability",
+        "weathercode",
+        "uv_index",
         // 'pm25', // Open-Meteo does not provide PM2.5 data
-      ].join(','),
+      ].join(","),
       start_date: date,
       end_date: date,
-      timezone: 'Asia/Tokyo',
+      timezone: "Asia/Tokyo",
     };
 
-    const res = await axios.get('https://api.open-meteo.com/v1/forecast', { params });
+    const res = await axios.get("https://api.open-meteo.com/v1/forecast", {
+      params,
+    });
 
     const h = res.data.hourly;
-    const idx = h.time.findIndex((t: string) => t.startsWith(date) && Number(t.slice(11, 13)) === hour);
+    const idx = h.time.findIndex(
+      (t: string) => t.startsWith(date) && Number(t.slice(11, 13)) === hour,
+    );
 
-    if (idx === -1) throw new Error('Weather data not found for specified time');
+    if (idx === -1)
+      throw new Error("Weather data not found for specified time");
 
     return {
       datetime,

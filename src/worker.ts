@@ -1,3 +1,3 @@
-import { app } from './interface/router'
+import { app } from "./interface/router";
 
-export default app
+export default app;

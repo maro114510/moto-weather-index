@@ -13,7 +13,12 @@ tasks:
   lint:
     desc: "Lint with Biome"
     cmds:
-      - bunx biome check .
+      - bunx biome check --config-path .biomerc.json .
+
+  lint:fix:
+    desc: "Fix lint issues with Biome"
+    cmds:
+      - bunx biome check --config-path .biomerc.json --write --unsafe src/
 
   format:
     desc: "Format code with Biome"

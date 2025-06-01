@@ -1,5 +1,5 @@
 // src/interface/handlers/touringIndexHandler.ts
-import { Context } from "hono";
+import type { Context } from "hono";
 import { createWeatherRepository } from "../../di/container";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 
@@ -9,12 +9,20 @@ import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 export async function getTouringIndex(c: Context) {
   const lat = Number(c.req.query("lat"));
   const lon = Number(c.req.query("lon"));
-  const datetime = c.req.query("datetime") || new Date(
-    new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour12: false }).format(new Date())
-  ).toISOString();
+  const datetime =
+    c.req.query("datetime") ||
+    new Date(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Tokyo",
+        hour12: false,
+      }).format(new Date()),
+    ).toISOString();
 
-  if (isNaN(lat) || isNaN(lon)) {
-    return c.json({ error: "lat and lon are required and must be numbers" }, 400);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    return c.json(
+      { error: "lat and lon are required and must be numbers" },
+      400,
+    );
   }
 
   try {
