@@ -54,7 +54,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
           item.score,
           item.weather_factors_json,
           item.weather_raw_json,
-          item.calculated_at || null
+          item.calculated_at || null,
         )
         .run();
 
@@ -68,15 +68,19 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
         weatherRawSize: item.weather_raw_json.length,
       });
     } catch (error) {
-      logger.error("Failed to upsert touring index", {
-        ...context,
-        operation: "upsert_touring_index_error",
-        sql: sql.replace(/\s+/g, ' ').trim(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      }, error as Error);
+      logger.error(
+        "Failed to upsert touring index",
+        {
+          ...context,
+          operation: "upsert_touring_index_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
 
       throw new Error(
-        `Failed to upsert touring index for prefecture ${item.prefecture_id}, date ${item.date}: ${error}`
+        `Failed to upsert touring index for prefecture ${item.prefecture_id}, date ${item.date}: ${error}`,
       );
     }
   }
@@ -109,7 +113,9 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
           operation: "get_all_prefectures_empty",
           dbDuration,
         });
-        throw new Error("No prefectures found in database. Please check if prefectures table is initialized.");
+        throw new Error(
+          "No prefectures found in database. Please check if prefectures table is initialized.",
+        );
       }
 
       logger.info("Prefectures fetched successfully", {
@@ -121,12 +127,16 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
       return result.results;
     } catch (error) {
-      logger.error("Failed to fetch prefectures", {
-        ...context,
-        operation: "get_all_prefectures_error",
-        sql: sql.replace(/\s+/g, ' ').trim(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      }, error as Error);
+      logger.error(
+        "Failed to fetch prefectures",
+        {
+          ...context,
+          operation: "get_all_prefectures_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
 
       throw new Error(`Failed to fetch prefectures: ${error}`);
     }
@@ -139,7 +149,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
   async getTouringIndexByPrefectureAndDateRange(
     prefectureId: number,
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<TouringIndexRecord[]> {
     const context = {
       operation: "get_touring_index_by_range",
@@ -174,15 +184,19 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
       return result.results || [];
     } catch (error) {
-      logger.error("Failed to fetch touring index data by date range", {
-        ...context,
-        operation: "get_touring_index_by_range_error",
-        sql: sql.replace(/\s+/g, ' ').trim(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      }, error as Error);
+      logger.error(
+        "Failed to fetch touring index data by date range",
+        {
+          ...context,
+          operation: "get_touring_index_by_range_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
 
       throw new Error(
-        `Failed to fetch touring index data for prefecture ${prefectureId}: ${error}`
+        `Failed to fetch touring index data for prefecture ${prefectureId}: ${error}`,
       );
     }
   }
@@ -197,7 +211,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
     logger.debug("Starting touring index count", context);
 
-    const sql = `SELECT COUNT(*) as count FROM touring_index_daily`;
+    const sql = "SELECT COUNT(*) as count FROM touring_index_daily";
 
     try {
       const dbStartTime = Date.now();
@@ -214,12 +228,16 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
       return count;
     } catch (error) {
-      logger.error("Failed to get touring index count", {
-        ...context,
-        operation: "get_touring_index_count_error",
-        sql: sql.replace(/\s+/g, ' ').trim(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      }, error as Error);
+      logger.error(
+        "Failed to get touring index count",
+        {
+          ...context,
+          operation: "get_touring_index_count_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
 
       throw new Error(`Failed to get touring index count: ${error}`);
     }
@@ -231,7 +249,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
    */
   async deleteTouringIndexByDateRange(
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<number> {
     const context = {
       operation: "delete_touring_index_by_range",
@@ -248,10 +266,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
     try {
       const dbStartTime = Date.now();
-      const result = await this.db
-        .prepare(sql)
-        .bind(startDate, endDate)
-        .run();
+      const result = await this.db.prepare(sql).bind(startDate, endDate).run();
       const dbDuration = Date.now() - dbStartTime;
       const deletedCount = result.changes || 0;
 
@@ -264,15 +279,19 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
 
       return deletedCount;
     } catch (error) {
-      logger.error("Failed to delete touring index data by date range", {
-        ...context,
-        operation: "delete_touring_index_by_range_error",
-        sql: sql.replace(/\s+/g, ' ').trim(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      }, error as Error);
+      logger.error(
+        "Failed to delete touring index data by date range",
+        {
+          ...context,
+          operation: "delete_touring_index_by_range_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
 
       throw new Error(
-        `Failed to delete touring index data for date range ${startDate} to ${endDate}: ${error}`
+        `Failed to delete touring index data for date range ${startDate} to ${endDate}: ${error}`,
       );
     }
   }
