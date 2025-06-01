@@ -1,4 +1,4 @@
-import { OpenMeteoWeatherRepository } from '../infra/OpenMeteoWeatherRepository';
+import { OpenMeteoWeatherRepository } from "../infra/OpenMeteoWeatherRepository";
 
 export function createWeatherRepository(kv?: KVNamespace) {
   return new OpenMeteoWeatherRepository(kv);

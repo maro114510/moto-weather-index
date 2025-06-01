@@ -1,5 +1,5 @@
 // src/interface/handlers/weatherHandler.ts
-import { Context } from "hono";
+import type { Context } from "hono";
 import { createWeatherRepository } from "../../di/container";
 
 /**
@@ -10,8 +10,11 @@ export async function getWeather(c: Context) {
   const lon = Number(c.req.query("lon"));
   const datetime = c.req.query("datetime") || new Date().toISOString();
 
-  if (isNaN(lat) || isNaN(lon)) {
-    return c.json({ error: "lat and lon are required and must be numbers" }, 400);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    return c.json(
+      { error: "lat and lon are required and must be numbers" },
+      400,
+    );
   }
 
   try {

@@ -23,7 +23,7 @@
  */
 
 import { z } from "zod";
-import { WeatherCondition, AirQualityLevel } from "./Weather";
+import type { AirQualityLevel, WeatherCondition } from "./Weather";
 
 /**
  * Zod schema for weather condition.
