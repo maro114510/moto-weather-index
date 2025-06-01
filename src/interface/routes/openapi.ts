@@ -14,7 +14,9 @@ export const healthRoute = createRoute({
         "application/json": {
           schema: z.object({
             status: z.string().openapi({ example: "ok" }),
-            timestamp: z.string().openapi({ example: "2024-01-01T00:00:00.000Z" }),
+            timestamp: z
+              .string()
+              .openapi({ example: "2024-01-01T00:00:00.000Z" }),
           }),
         },
       },
@@ -33,15 +35,15 @@ export const weatherRoute = createRoute({
     query: z.object({
       lat: z.string().openapi({
         example: "35.6762",
-        description: "Latitude (-90 to 90)"
+        description: "Latitude (-90 to 90)",
       }),
       lon: z.string().openapi({
         example: "139.6503",
-        description: "Longitude (-180 to 180)"
+        description: "Longitude (-180 to 180)",
       }),
       datetime: z.string().optional().openapi({
         example: "2024-01-01T12:00:00Z",
-        description: "ISO 8601 datetime (optional, defaults to current time)"
+        description: "ISO 8601 datetime (optional, defaults to current time)",
       }),
     }),
   },
@@ -52,14 +54,19 @@ export const weatherRoute = createRoute({
         "application/json": {
           schema: z.object({
             datetime: z.string().openapi({ example: "2024-01-01T12:00:00Z" }),
-            condition: z.enum(["clear", "cloudy", "rain", "snow", "unknown"]).openapi({ example: "clear" }),
+            condition: z
+              .enum(["clear", "cloudy", "rain", "snow", "unknown"])
+              .openapi({ example: "clear" }),
             temperature: z.number().openapi({ example: 25.5 }),
             windSpeed: z.number().openapi({ example: 5.2 }),
             humidity: z.number().openapi({ example: 60 }),
             visibility: z.number().openapi({ example: 10 }),
             precipitationProbability: z.number().openapi({ example: 20 }),
             uvIndex: z.number().openapi({ example: 5 }),
-            airQuality: z.enum(["low", "medium", "high"]).optional().openapi({ example: "low" }),
+            airQuality: z
+              .enum(["low", "medium", "high"])
+              .optional()
+              .openapi({ example: "low" }),
           }),
         },
       },
@@ -69,7 +76,9 @@ export const weatherRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            error: z.string().openapi({ example: "lat must be between -90 and 90" }),
+            error: z
+              .string()
+              .openapi({ example: "lat must be between -90 and 90" }),
           }),
         },
       },
@@ -82,21 +91,22 @@ export const touringIndexRoute = createRoute({
   method: "get",
   path: "/api/v1/touring-index",
   summary: "Calculate touring index",
-  description: "Calculate touring suitability index based on weather conditions",
+  description:
+    "Calculate touring suitability index based on weather conditions",
   tags: ["Touring Index"],
   request: {
     query: z.object({
       lat: z.string().openapi({
         example: "35.6762",
-        description: "Latitude (-90 to 90)"
+        description: "Latitude (-90 to 90)",
       }),
       lon: z.string().openapi({
         example: "139.6503",
-        description: "Longitude (-180 to 180)"
+        description: "Longitude (-180 to 180)",
       }),
       datetime: z.string().optional().openapi({
         example: "2024-01-01T12:00:00Z",
-        description: "ISO 8601 datetime (optional, defaults to current time)"
+        description: "ISO 8601 datetime (optional, defaults to current time)",
       }),
     }),
   },
@@ -118,8 +128,8 @@ export const touringIndexRoute = createRoute({
                 weather: 25,
                 wind: 15,
                 visibility: 10,
-                humidity: 15
-              }
+                humidity: 15,
+              },
             }),
           }),
         },
@@ -130,7 +140,9 @@ export const touringIndexRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            error: z.string().openapi({ example: "lat must be between -90 and 90" }),
+            error: z
+              .string()
+              .openapi({ example: "lat must be between -90 and 90" }),
           }),
         },
       },
@@ -149,11 +161,11 @@ export const touringIndexHistoryRoute = createRoute({
     query: z.object({
       lat: z.string().openapi({
         example: "35.6762",
-        description: "Latitude (-90 to 90)"
+        description: "Latitude (-90 to 90)",
       }),
       lon: z.string().openapi({
         example: "139.6503",
-        description: "Longitude (-180 to 180)"
+        description: "Longitude (-180 to 180)",
       }),
     }),
   },
@@ -163,7 +175,9 @@ export const touringIndexHistoryRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            message: z.string().openapi({ example: "History feature not implemented yet" }),
+            message: z
+              .string()
+              .openapi({ example: "History feature not implemented yet" }),
           }),
         },
       },
@@ -176,18 +190,19 @@ export const touringIndexBatchRoute = createRoute({
   method: "post",
   path: "/api/v1/touring-index/batch",
   summary: "Execute batch touring index calculation",
-  description: "Calculate touring index for all prefectures for multiple days (requires authentication)",
+  description:
+    "Calculate touring index for all prefectures for multiple days (requires authentication)",
   tags: ["Touring Index", "Batch Operations"],
   security: [{ bearerAuth: [] }],
   request: {
     query: z.object({
       days: z.string().optional().openapi({
         example: "7",
-        description: "Number of days to calculate (1-30, default: 7)"
+        description: "Number of days to calculate (1-30, default: 7)",
       }),
       maxRetries: z.string().optional().openapi({
         example: "3",
-        description: "Maximum retry attempts (1-10, default: 3)"
+        description: "Maximum retry attempts (1-10, default: 3)",
       }),
     }),
   },
@@ -200,7 +215,7 @@ export const touringIndexBatchRoute = createRoute({
             status: z.string().openapi({ example: "completed" }),
             duration_ms: z.number().openapi({ example: 15432 }),
             target_dates: z.array(z.string()).openapi({
-              example: ["2024-01-01", "2024-01-02", "2024-01-03"]
+              example: ["2024-01-01", "2024-01-02", "2024-01-03"],
             }),
             summary: z.object({
               total_processed: z.number().openapi({ example: 141 }),
@@ -208,9 +223,12 @@ export const touringIndexBatchRoute = createRoute({
               failed_inserts: z.number().openapi({ example: 3 }),
               success_rate: z.number().openapi({ example: 98 }),
             }),
-            errors: z.array(z.string()).optional().openapi({
-              example: ["Prefecture 01: Weather data unavailable"]
-            }),
+            errors: z
+              .array(z.string())
+              .optional()
+              .openapi({
+                example: ["Prefecture 01: Weather data unavailable"],
+              }),
           }),
         },
       },

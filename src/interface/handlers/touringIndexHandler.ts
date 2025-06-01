@@ -78,8 +78,8 @@ export async function getTouringIndex(c: Context) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessage = error.errors
-        .map(e => `${e.path.join('.')}: ${e.message}`)
-        .join(', ');
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join(", ");
       return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
     }
     throw error;
@@ -98,7 +98,10 @@ export async function getTouringIndexHistory(c: Context) {
     operation: "history_not_implemented",
   });
 
-  return c.json({ message: "History feature not implemented yet" }, HTTP_STATUS.OK);
+  return c.json(
+    { message: "History feature not implemented yet" },
+    HTTP_STATUS.OK,
+  );
 }
 
 /**
@@ -191,26 +194,36 @@ export async function postTouringIndexBatch(c: Context) {
     }
 
     // Return detailed result
-    return c.json({
-      status: "completed",
-      duration_ms: duration,
-      target_dates: targetDates,
-      summary: {
-        total_processed: result.total_processed,
-        successful_inserts: result.successful_inserts,
-        failed_inserts: result.failed_inserts,
-        success_rate: successRate,
+    return c.json(
+      {
+        status: "completed",
+        duration_ms: duration,
+        target_dates: targetDates,
+        summary: {
+          total_processed: result.total_processed,
+          successful_inserts: result.successful_inserts,
+          failed_inserts: result.failed_inserts,
+          success_rate: successRate,
+        },
+        errors:
+          result.errors.length > 0
+            ? result.errors.map(
+                (err) =>
+                  `Prefecture ${err.prefecture_id} (${err.date}): ${err.error}`,
+              )
+            : undefined,
       },
-      errors: result.errors.length > 0 ? result.errors.map(err =>
-        `Prefecture ${err.prefecture_id} (${err.date}): ${err.error}`
-      ) : undefined,
-    }, HTTP_STATUS.OK);
+      HTTP_STATUS.OK,
+    );
   } catch (error) {
     logger.error("Batch processing failed", {
       ...requestContext,
       operation: "batch_processing_failed",
       error: error instanceof Error ? error.message : String(error),
     });
-    return c.json({ error: "Internal server error" }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return c.json(
+      { error: "Internal server error" },
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
   }
 }

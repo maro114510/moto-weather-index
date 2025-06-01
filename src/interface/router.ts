@@ -1,5 +1,5 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { healthCheck } from "./handlers/healthHandler";
 import {
   getTouringIndex,
@@ -12,10 +12,10 @@ import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
 import {
   healthRoute,
-  weatherRoute,
-  touringIndexRoute,
-  touringIndexHistoryRoute,
   touringIndexBatchRoute,
+  touringIndexHistoryRoute,
+  touringIndexRoute,
+  weatherRoute,
 } from "./routes/openapi";
 
 export const app = new OpenAPIHono();
@@ -40,7 +40,8 @@ app.doc("/specification", {
   info: {
     title: "Moto Weather Index API",
     version: "1.0.0",
-    description: "API for calculating motorcycle touring weather index based on weather conditions",
+    description:
+      "API for calculating motorcycle touring weather index based on weather conditions",
   },
   servers: [
     {

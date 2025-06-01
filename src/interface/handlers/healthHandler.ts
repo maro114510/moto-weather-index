@@ -10,5 +10,8 @@ export function healthCheck(c: Context) {
     operation: "health_check",
   });
 
-  return c.json({ status: "ok", timestamp: new Date().toISOString() }, HTTP_STATUS.OK);
+  return c.json(
+    { status: "ok", timestamp: new Date().toISOString() },
+    HTTP_STATUS.OK,
+  );
 }
