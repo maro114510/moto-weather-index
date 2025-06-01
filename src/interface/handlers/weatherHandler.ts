@@ -1,30 +1,55 @@
 // src/interface/handlers/weatherHandler.ts
 import type { Context } from "hono";
+import { z } from "zod";
 import { createWeatherRepository } from "../../di/container";
+import { getWeatherSchema } from "../../dao/weatherSchemas";
+import { HTTP_STATUS } from "../../constants/httpStatus";
+import { logger } from "../../utils/logger";
 
 /**
  * Handler for GET /weather
  */
 export async function getWeather(c: Context) {
-  const lat = Number(c.req.query("lat"));
-  const lon = Number(c.req.query("lon"));
-  const datetime = c.req.query("datetime") || new Date().toISOString();
+  const requestContext = c.get("requestContext") || {};
 
-  if (Number.isNaN(lat) || Number.isNaN(lon)) {
-    return c.json(
-      { error: "lat and lon are required and must be numbers" },
-      400,
-    );
-  }
+  logger.businessLogic("get_weather_start", requestContext);
 
-  try {
-    // Get KV namespace from environment
-    const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv);
+  // Validate query parameters
+  const queryParams = getWeatherSchema.parse({
+    lat: c.req.query("lat"),
+    lon: c.req.query("lon"),
+    datetime: c.req.query("datetime"),
+  });
 
-    const weather = await weatherRepo.getWeather(lat, lon, datetime);
-    return c.json(weather);
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500);
-  }
+  const { lat, lon } = queryParams;
+  const datetime = queryParams.datetime || new Date().toISOString();
+
+  logger.info("Processing weather request", {
+    ...requestContext,
+    operation: "weather_request",
+    location: { lat, lon },
+    datetime,
+    datetimeSource: queryParams.datetime ? "provided" : "auto_generated",
+  });
+
+  // Get KV namespace from environment
+  const kv = c.env?.OPEN_METEO_CACHE;
+  const weatherRepo = createWeatherRepository(kv);
+
+  const weather = await weatherRepo.getWeather(lat, lon, datetime);
+
+  logger.info("Weather data retrieved successfully", {
+    ...requestContext,
+    operation: "weather_success",
+    location: { lat, lon },
+    datetime,
+    weather: {
+      condition: weather.condition,
+      temperature: weather.temperature,
+      windSpeed: weather.windSpeed,
+      humidity: weather.humidity,
+    },
+  });
+
+  return c.json(weather);
 }
