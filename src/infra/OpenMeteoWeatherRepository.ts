@@ -12,7 +12,50 @@ function mapWeatherCode(code: number): WeatherCondition {
 }
 
 export class OpenMeteoWeatherRepository implements WeatherRepository {
+  private kv?: KVNamespace;
+  private readonly cacheExpirationSeconds = 3 * 60 * 60; // 3 hours
+
+  constructor(kv?: KVNamespace) {
+    this.kv = kv;
+  }
+
+  private generateCacheKey(lat: number, lon: number, datetime: string): string {
+    return `weather:${lat}:${lon}:${datetime}`;
+  }
+
   async getWeather(lat: number, lon: number, datetime: string): Promise<Weather> {
+    const cacheKey = this.generateCacheKey(lat, lon, datetime);
+
+    // Try to get from cache first
+    if (this.kv) {
+      try {
+        const cachedData = await this.kv.get(cacheKey, 'json');
+        if (cachedData) {
+          return cachedData as Weather;
+        }
+      } catch (error) {
+        console.warn('Failed to read from KV cache:', error);
+      }
+    }
+
+    // If not in cache, fetch from API
+    const weather = await this.fetchWeatherFromAPI(lat, lon, datetime);
+
+    // Store in cache
+    if (this.kv) {
+      try {
+        await this.kv.put(cacheKey, JSON.stringify(weather), {
+          expirationTtl: this.cacheExpirationSeconds
+        });
+      } catch (error) {
+        console.warn('Failed to write to KV cache:', error);
+      }
+    }
+
+    return weather;
+  }
+
+  private async fetchWeatherFromAPI(lat: number, lon: number, datetime: string): Promise<Weather> {
     const date = datetime.slice(0, 10);
     const hour = Number(datetime.slice(11, 13));
 
