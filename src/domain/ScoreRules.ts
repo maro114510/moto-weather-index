@@ -22,7 +22,24 @@
  * according to motorcycle touring best practices and physical comfort.
  */
 
-import { WeatherCondition } from './Weather'
+import { z } from "zod";
+import { WeatherCondition, AirQualityLevel } from "./Weather";
+
+/**
+ * Zod schema for weather condition.
+ */
+const WeatherConditionSchema = z.enum([
+  "clear",
+  "cloudy",
+  "rain",
+  "snow",
+  "unknown",
+]);
+
+/**
+ * Zod schema for air quality level.
+ */
+const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);
 
 /**
  * Convert weather condition to score (max 30 points).
@@ -31,11 +48,19 @@ import { WeatherCondition } from './Weather'
  * - 'rain'/'snow'/'unknown': not suitable, 0 points.
  */
 export function weatherScore(condition: WeatherCondition): number {
+  // Type and value validation
+  WeatherConditionSchema.parse(condition);
+
   switch (condition) {
-    case 'clear': return 30 // Perfect riding weather
-    case 'cloudy': return 10 // Acceptable, but less enjoyable
-    case 'rain': case 'snow': return 0 // Unsafe or not enjoyable
-    default: return 0
+    case "clear":
+      return 30; // Perfect riding weather
+    case "cloudy":
+      return 10; // Acceptable, but less enjoyable
+    case "rain":
+    case "snow":
+      return 0; // Unsafe or not enjoyable
+    default:
+      return 0;
   }
 }
 
@@ -47,12 +72,14 @@ export function weatherScore(condition: WeatherCondition): number {
  *   (e.g. 21.5°C = 20pts, 16.5°C/26.5°C = 14pts, etc.)
  */
 export function temperatureScore(temp: number): number {
-  const ideal = 21.5
-  const diff = Math.abs(temp - ideal)
-  const score = 20 - diff * 2
-  return Math.max(0, Math.min(20, Math.round(score)))
-}
+  // Type and value validation: -50°C to 60°C
+  z.number().min(-50).max(60).parse(temp);
 
+  const ideal = 21.5;
+  const diff = Math.abs(temp - ideal);
+  const score = 20 - diff * 2;
+  return Math.max(0, Math.min(20, Math.round(score)));
+}
 /**
  * Convert wind speed (m/s) to score (max 15 points).
  * - 1–4 m/s: ideal wind, full points.
@@ -60,10 +87,13 @@ export function temperatureScore(temp: number): number {
  * - >7 m/s: dangerous or uncomfortable, no points.
  */
 export function windScore(wind: number): number {
-  if (wind >= 1 && wind <= 4) return 15 // Ideal breeze for touring
-  if (wind === 0 || (wind > 4 && wind <= 7)) return 10 // Either no wind or slightly strong wind
-  if (wind > 7) return 0 // Too strong, may be unsafe
-  return 10 // For negative/invalid input, fallback to mid score
+  // Type and value validation: 0–50 m/s
+  z.number().min(0).max(50).parse(wind);
+
+  if (wind >= 1 && wind <= 4) return 15; // Ideal breeze for touring
+  if (wind === 0 || (wind > 4 && wind <= 7)) return 10; // Either no wind or slightly strong wind
+  if (wind > 7) return 0; // Too strong, may be unsafe
+  return 10; // For negative/invalid input, fallback to mid score
 }
 
 /**
@@ -73,9 +103,12 @@ export function windScore(wind: number): number {
  * - Minimum 0, maximum 10.
  */
 export function humidityScore(humidity: number): number {
-  const diff = Math.abs(humidity - 50)
-  const score = 10 - diff / 5
-  return Math.max(0, Math.min(10, Math.round(score)))
+  // Type and value validation: 0–100%
+  z.number().min(0).max(100).parse(humidity);
+
+  const diff = Math.abs(humidity - 50);
+  const score = 10 - diff / 5;
+  return Math.max(0, Math.min(10, Math.round(score)));
 }
 
 /**
@@ -86,10 +119,13 @@ export function humidityScore(humidity: number): number {
  * - <6km: poor, 0 points.
  */
 export function visibilityScore(visibility: number): number {
-  if (visibility >= 15) return 5 // Panoramic view, best for touring
-  if (visibility >= 10) return 4 // Good, but not perfect
-  if (visibility >= 6) return 2  // Average, but still manageable
-  return 0 // Poor visibility, not recommended
+  // Type and value validation: 0–100km
+  z.number().min(0).max(100).parse(visibility);
+
+  if (visibility >= 15) return 5; // Panoramic view, best for touring
+  if (visibility >= 10) return 4; // Good, but not perfect
+  if (visibility >= 6) return 2; // Average, but still manageable
+  return 0; // Poor visibility, not recommended
 }
 
 /**
@@ -99,8 +135,11 @@ export function visibilityScore(visibility: number): number {
  * - e.g. 30% = 7pts, 50% = 5pts, 100% = 0pts.
  */
 export function precipitationProbabilityScore(prob: number): number {
-  const score = 10 - prob / 10
-  return Math.max(0, Math.min(10, Math.round(score)))
+  // Type and value validation: 0–100%
+  z.number().min(0).max(100).parse(prob);
+
+  const score = 10 - prob / 10;
+  return Math.max(0, Math.min(10, Math.round(score)));
 }
 
 /**
@@ -110,9 +149,12 @@ export function precipitationProbabilityScore(prob: number): number {
  * - 7 or higher: high risk, 0 points.
  */
 export function uvIndexScore(uv: number): number {
-  if (uv <= 4) return 5 // Low UV, no concern
-  if (uv <= 6) return 3 // Moderate UV, some caution needed
-  return 0 // High UV, uncomfortable or risky
+  // Type and value validation: 0–20
+  z.number().min(0).max(20).parse(uv);
+
+  if (uv <= 4) return 5; // Low UV, no concern
+  if (uv <= 6) return 3; // Moderate UV, some caution needed
+  return 0; // High UV, uncomfortable or risky
 }
 
 /**
@@ -122,8 +164,13 @@ export function uvIndexScore(uv: number): number {
  * - 'high': bad, 0 points.
  * - undefined: treat as 'low' (best case).
  */
-export function airQualityScore(level: 'low' | 'medium' | 'high' | undefined): number {
-  if (level === 'low' || !level) return 5 // No pollen/smog, perfect
-  if (level === 'medium') return 3 // Some discomfort
-  return 0 // Bad air, not recommended for outdoor activity
+export function airQualityScore(level: AirQualityLevel | undefined): number {
+  // Allow undefined (treat as 'low'), otherwise must be valid
+  if (level !== undefined) {
+    AirQualityLevelSchema.parse(level);
+  }
+
+  if (level === "low" || !level) return 5; // No pollen/smog, perfect
+  if (level === "medium") return 3; // Some discomfort
+  return 0; // Bad air, not recommended for outdoor activity
 }
