@@ -62,7 +62,7 @@ export async function scheduledHandler(
       console.warn("Batch processing completed with errors:", result.errors);
     }
   } catch (error) {
-    console.error("Scheduled batch processing failed:", error);
+    logger.error("Scheduled batch processing failed:", error);
     throw error; // Re-throw to mark the execution as failed
   }
 }
