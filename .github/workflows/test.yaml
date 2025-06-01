@@ -15,4 +15,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
+      - name: Lint code
+        run: bunx biome check --config-path .biomerc.json .
       - run: bun test
