@@ -106,7 +106,7 @@ export async function getTouringIndexHistory(c: Context) {
 
 /**
  * Handler for POST /touring-index/batch
- * Execute batch calculation for all prefectures for the next 7 days
+ * Execute batch calculation for all prefectures for the next 16 days
  */
 export async function postTouringIndexBatch(c: Context) {
   const requestContext = c.get("requestContext") || {};

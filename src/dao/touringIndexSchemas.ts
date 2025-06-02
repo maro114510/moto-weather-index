@@ -25,7 +25,7 @@ export const batchParametersSchema = z.object({
     .string()
     .optional()
     .transform((val) => {
-      if (!val) return 7;
+      if (!val) return 16;
       const num = Number.parseInt(val, 10);
       if (Number.isNaN(num) || num < 1 || num > 30) {
         throw new Error("days parameter must be between 1 and 30");

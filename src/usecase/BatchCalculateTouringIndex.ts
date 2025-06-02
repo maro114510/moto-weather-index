@@ -32,6 +32,12 @@ export interface BatchProcessResult {
 
 export interface WeatherRepository {
   getWeather(lat: number, lon: number, datetime: string): Promise<Weather>;
+  getWeatherBatch(
+    lat: number,
+    lon: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<Weather[]>;
 }
 
 export interface TouringIndexRepository {
@@ -87,55 +93,64 @@ export class BatchCalculateTouringIndexUsecase {
         totalProcessingItems: result.total_processed,
       });
 
-      // Process each prefecture for each target date
+      // Process each prefecture with batch weather API call
       for (const prefecture of prefectures) {
-        for (const date of targetDates) {
-          const itemContext = {
-            ...context,
-            operation: "batch_process_item",
-            prefecture: {
-              id: prefecture.id,
-              name: prefecture.name_en,
-              location: {
-                lat: prefecture.latitude,
-                lon: prefecture.longitude,
-              },
+        const prefectureContext = {
+          ...context,
+          operation: "batch_process_prefecture",
+          prefecture: {
+            id: prefecture.id,
+            name: prefecture.name_en,
+            location: {
+              lat: prefecture.latitude,
+              lon: prefecture.longitude,
             },
-            date,
-          };
+          },
+        };
 
-          try {
-            logger.debug("Processing prefecture-date combination", itemContext);
+        try {
+          logger.debug(
+            "Processing prefecture with batch weather fetch",
+            prefectureContext,
+          );
 
-            await this.processOnePrefectureDate(prefecture, date, maxRetries);
+          await this.processPrefectureBatch(
+            prefecture,
+            targetDates,
+            maxRetries,
+          );
 
-            result.successful_inserts++;
+          result.successful_inserts += targetDates.length;
 
-            logger.debug("Successfully processed prefecture-date combination", {
-              ...itemContext,
-              operation: "batch_item_success",
-            });
-          } catch (error) {
+          logger.debug("Successfully processed prefecture batch", {
+            ...prefectureContext,
+            operation: "prefecture_batch_success",
+            datesProcessed: targetDates.length,
+          });
+        } catch (error) {
+          // If batch processing fails, add errors for all dates
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
+          for (const date of targetDates) {
             result.failed_inserts++;
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-
             result.errors.push({
               prefecture_id: prefecture.id,
               date,
               error: errorMessage,
             });
-
-            logger.error(
-              "Failed to process prefecture-date combination",
-              {
-                ...itemContext,
-                operation: "batch_item_error",
-                errorMessage,
-              },
-              error as Error,
-            );
           }
+
+          logger.error(
+            "Failed to process prefecture batch",
+            {
+              ...prefectureContext,
+              operation: "prefecture_batch_error",
+              errorMessage,
+              affectedDates: targetDates.length,
+            },
+            error as Error,
+          );
         }
       }
 
@@ -173,18 +188,18 @@ export class BatchCalculateTouringIndexUsecase {
   }
 
   /**
-   * Process one prefecture for one specific date
+   * Process one prefecture for all target dates using batch weather API
    * @param prefecture Prefecture data
-   * @param date Target date in YYYY-MM-DD format
+   * @param targetDates Array of target dates in YYYY-MM-DD format
    * @param maxRetries Maximum retry attempts
    */
-  private async processOnePrefectureDate(
+  private async processPrefectureBatch(
     prefecture: Prefecture,
-    date: string,
+    targetDates: string[],
     maxRetries: number,
   ): Promise<void> {
     const context = {
-      operation: "process_prefecture_date",
+      operation: "process_prefecture_batch",
       prefecture: {
         id: prefecture.id,
         name: prefecture.name_en,
@@ -193,75 +208,106 @@ export class BatchCalculateTouringIndexUsecase {
           lon: prefecture.longitude,
         },
       },
-      date,
+      datesCount: targetDates.length,
+      firstDate: targetDates[0],
+      lastDate: targetDates[targetDates.length - 1],
       maxRetries,
     };
 
-    logger.debug("Starting processing for prefecture-date", context);
+    logger.debug("Starting batch processing for prefecture", context);
 
     let lastError: Error | undefined;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const attemptContext = {
         ...context,
-        operation: "prefecture_date_attempt",
+        operation: "prefecture_batch_attempt",
         attempt,
       };
 
       try {
-        logger.debug("Processing attempt started", attemptContext);
+        logger.debug("Batch processing attempt started", attemptContext);
 
-        // Convert date to ISO datetime for weather API (use noon JST)
-        const datetime = `${date}T03:00:00Z`; // 12:00 JST = 03:00 UTC
+        const startDate = targetDates[0];
+        const endDate = targetDates[targetDates.length - 1];
 
-        logger.debug("Fetching weather data", {
+        logger.debug("Fetching batch weather data", {
           ...attemptContext,
-          datetime,
+          startDate,
+          endDate,
         });
 
-        // Get weather data from API
-        const weatherData = await this.weatherRepository.getWeather(
+        // Get weather data for all dates in one API call
+        const weatherDataList = await this.weatherRepository.getWeatherBatch(
           prefecture.latitude,
           prefecture.longitude,
-          datetime,
+          startDate,
+          endDate,
         );
 
-        logger.debug("Weather data fetched, calculating touring index", {
+        logger.debug(
+          "Batch weather data fetched, processing individual dates",
+          {
+            ...attemptContext,
+            weatherRecordsReceived: weatherDataList.length,
+          },
+        );
+
+        // Process each date with its corresponding weather data
+        for (let i = 0; i < targetDates.length; i++) {
+          const date = targetDates[i];
+          const weatherData = weatherDataList[i];
+
+          if (!weatherData) {
+            throw new Error(`Weather data missing for date: ${date}`);
+          }
+
+          logger.debug("Processing individual date", {
+            ...attemptContext,
+            date,
+            weatherCondition: weatherData.condition,
+            temperature: weatherData.temperature,
+          });
+
+          // Calculate touring index
+          const { score, breakdown } = calculateTouringIndex(weatherData);
+
+          logger.debug("Touring index calculated for date", {
+            ...attemptContext,
+            date,
+            score,
+            breakdown,
+          });
+
+          // Prepare data for database insertion
+          const batchItem: TouringIndexBatchItem = {
+            prefecture_id: prefecture.id,
+            date,
+            score,
+            weather_factors_json: JSON.stringify(breakdown),
+            weather_raw_json: JSON.stringify(weatherData),
+          };
+
+          logger.dbOperation("upsertTouringIndex", "touring_index", {
+            ...attemptContext,
+            date,
+            score,
+          });
+
+          // Insert/update in database (upsert)
+          await this.touringIndexRepository.upsertTouringIndex(batchItem);
+
+          logger.debug("Individual date processing completed successfully", {
+            ...attemptContext,
+            date,
+            score,
+          });
+        }
+
+        logger.debug("Prefecture batch processing completed successfully", {
           ...attemptContext,
-          weatherCondition: weatherData.condition,
-          temperature: weatherData.temperature,
-        });
-
-        // Calculate touring index
-        const { score, breakdown } = calculateTouringIndex(weatherData);
-
-        logger.debug("Touring index calculated", {
-          ...attemptContext,
-          score,
-          breakdown,
-        });
-
-        // Prepare data for database insertion
-        const batchItem: TouringIndexBatchItem = {
-          prefecture_id: prefecture.id,
-          date,
-          score,
-          weather_factors_json: JSON.stringify(breakdown),
-          weather_raw_json: JSON.stringify(weatherData),
-        };
-
-        logger.dbOperation("upsertTouringIndex", "touring_index", {
-          ...attemptContext,
-          score,
-        });
-
-        // Insert/update in database (upsert)
-        await this.touringIndexRepository.upsertTouringIndex(batchItem);
-
-        logger.debug("Prefecture-date processing completed successfully", {
-          ...attemptContext,
-          operation: "prefecture_date_success",
-          score,
+          operation: "prefecture_batch_success",
+          datesProcessed: targetDates.length,
         });
 
         // Success - break retry loop
@@ -273,10 +319,10 @@ export class BatchCalculateTouringIndexUsecase {
           const waitTime = 1000 * attempt;
 
           logger.warn(
-            "Attempt failed, retrying",
+            "Batch attempt failed, retrying",
             {
               ...attemptContext,
-              operation: "prefecture_date_retry",
+              operation: "prefecture_batch_retry",
               errorMessage: lastError.message,
               waitTimeMs: waitTime,
               remainingAttempts: maxRetries - attempt,
@@ -288,10 +334,10 @@ export class BatchCalculateTouringIndexUsecase {
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         } else {
           logger.error(
-            "All retry attempts exhausted",
+            "All batch retry attempts exhausted",
             {
               ...attemptContext,
-              operation: "prefecture_date_all_retries_failed",
+              operation: "prefecture_batch_all_retries_failed",
               errorMessage: lastError.message,
             },
             lastError,
@@ -301,15 +347,15 @@ export class BatchCalculateTouringIndexUsecase {
     }
 
     // All retries failed
-    throw lastError || new Error("Unknown error during processing");
+    throw lastError || new Error("Unknown error during batch processing");
   }
 
   /**
    * Generate array of date strings for the next N days from today
-   * @param days Number of days to generate (default: 7)
+   * @param days Number of days to generate (default: 16)
    * @returns Array of date strings in YYYY-MM-DD format
    */
-  static generateTargetDates(days = 7): string[] {
+  static generateTargetDates(days = 16): string[] {
     const dates: string[] = [];
     const today = new Date();
 

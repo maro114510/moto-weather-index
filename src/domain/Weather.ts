@@ -44,11 +44,11 @@ export const WeatherSchema = z.object({
     .min(-50, "temperature is too low")
     .max(60, "temperature is too high"),
 
-  // Wind speed in m/s: 0 to 50
+  // Wind speed in m/s: 0 to 100 (extended for daily max values)
   windSpeed: z
     .number()
     .min(0, "windSpeed must be >= 0")
-    .max(50, "windSpeed is too high"),
+    .max(100, "windSpeed is too high"),
 
   // Humidity in %: 0 to 100
   humidity: z

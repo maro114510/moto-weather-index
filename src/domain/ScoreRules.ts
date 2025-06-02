@@ -103,8 +103,8 @@ export function temperatureScore(temp: number): number {
  * - >7 m/s: dangerous or uncomfortable, no points.
  */
 export function windScore(wind: number): number {
-  // Type and value validation: 0–50 m/s
-  z.number().min(0).max(50).parse(wind);
+  // Type and value validation: 0–100 m/s (extended for daily max values)
+  z.number().min(0).max(100).parse(wind);
 
   if (wind >= 1 && wind <= 4) return 15; // Ideal breeze for touring
   if (wind === 0 || (wind > 4 && wind <= 7)) return 10; // Either no wind or slightly strong wind

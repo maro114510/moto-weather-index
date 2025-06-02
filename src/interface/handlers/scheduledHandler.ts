@@ -29,7 +29,7 @@ export async function scheduledHandler(
     }
 
     // Default parameters for scheduled execution
-    const days = 7; // Calculate for next 7 days
+    const days = 16; // Calculate for next 16 days
     const maxRetries = 3;
 
     // Create repositories and usecase
