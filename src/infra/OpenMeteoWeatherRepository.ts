@@ -269,4 +269,128 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       throw error;
     }
   }
+
+  async getWeatherBatch(
+    lat: number,
+    lon: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<Weather[]> {
+    const context = {
+      operation: "get_weather_batch",
+      location: { lat, lon },
+      startDate,
+      endDate,
+    };
+
+    logger.debug("Starting batch weather data retrieval", context);
+
+    try {
+      const params = {
+        latitude: lat,
+        longitude: lon,
+        daily: [
+          "weathercode",
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "windspeed_10m_max",
+          "relative_humidity_2m_max",
+          "precipitation_probability_max",
+          "uv_index_max",
+        ].join(","),
+        start_date: startDate,
+        end_date: endDate,
+        timezone: APP_CONFIG.DEFAULT_TIMEZONE,
+      };
+
+      const url = getOpenMeteoForecastUrl();
+      logger.externalApiCall("OpenMeteo", url, {
+        ...context,
+        params: {
+          startDate,
+          endDate,
+          timezone: APP_CONFIG.DEFAULT_TIMEZONE,
+        },
+      });
+
+      const apiStartTime = Date.now();
+      const res = await axios.get(url, { params });
+      const apiDuration = Date.now() - apiStartTime;
+
+      logger.externalApiResponse("OpenMeteo", url, res.status, apiDuration, {
+        ...context,
+        responseSize: JSON.stringify(res.data).length,
+      });
+
+      const daily = res.data.daily;
+      if (!daily || !daily.time) {
+        logger.error("Invalid API response structure for batch request", {
+          ...context,
+          operation: "api_response_validation",
+          responseKeys: Object.keys(res.data),
+        });
+        throw new Error("Invalid OpenMeteo API response structure");
+      }
+
+      const weatherDataList: Weather[] = [];
+
+      for (let i = 0; i < daily.time.length; i++) {
+        const date = daily.time[i];
+        const weatherCode = daily.weathercode[i];
+        const condition = mapWeatherCode(weatherCode);
+
+        // Use noon time for daily data
+        const datetime = `${date}T03:00:00Z`; // 12:00 JST = 03:00 UTC
+
+        const weatherData: Weather = {
+          datetime,
+          condition,
+          temperature:
+            (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
+          windSpeed: daily.windspeed_10m_max[i],
+          humidity: daily.relative_humidity_2m_max[i],
+          visibility: 20, // Default visibility for daily data
+          precipitationProbability: daily.precipitation_probability_max[i],
+          uvIndex: daily.uv_index_max[i],
+        };
+
+        weatherDataList.push(weatherData);
+      }
+
+      logger.info("Batch weather data successfully fetched and processed", {
+        ...context,
+        operation: "weather_batch_fetch_success",
+        daysRetrieved: weatherDataList.length,
+      });
+
+      return weatherDataList;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        logger.error(
+          "OpenMeteo batch API request failed",
+          {
+            ...context,
+            operation: "api_batch_request_error",
+            statusCode: error.response?.status,
+            statusText: error.response?.statusText,
+            errorCode: error.code,
+            url: error.config?.url,
+          },
+          error,
+        );
+      } else {
+        logger.error(
+          "Failed to fetch batch weather data from API",
+          {
+            ...context,
+            operation: "api_batch_fetch_error",
+            errorType: error?.constructor?.name,
+          },
+          error as Error,
+        );
+      }
+
+      throw error;
+    }
+  }
 }
