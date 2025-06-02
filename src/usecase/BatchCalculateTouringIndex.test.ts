@@ -34,6 +34,36 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           };
         },
       ),
+      getWeatherBatch: mock(
+        async (
+          _lat: number,
+          _lon: number,
+          startDate: string,
+          endDate: string,
+        ): Promise<Weather[]> => {
+          // Generate weather data for date range
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const weatherData: Weather[] = [];
+
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateString = d.toISOString().split("T")[0];
+            weatherData.push({
+              datetime: `${dateString}T03:00:00Z`,
+              condition: "clear",
+              temperature: 21.5,
+              windSpeed: 2.5,
+              humidity: 50,
+              visibility: 20,
+              precipitationProbability: 0,
+              uvIndex: 3,
+              airQuality: "low",
+            });
+          }
+
+          return weatherData;
+        },
+      ),
     };
 
     mockTouringIndexRepository = {
@@ -94,9 +124,9 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(date3.getTime() - date2.getTime()).toBe(24 * 60 * 60 * 1000);
     });
 
-    test("should default to 7 days", () => {
+    test("should default to 16 days", () => {
       const dates = BatchCalculateTouringIndexUsecase.generateTargetDates();
-      expect(dates).toHaveLength(7);
+      expect(dates).toHaveLength(16);
     });
   });
 
@@ -112,32 +142,34 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(result.failed_inserts).toBe(0);
       expect(result.errors).toHaveLength(0);
 
-      // Verify weather API was called correctly
-      expect(mockWeatherRepository.getWeather).toHaveBeenCalledTimes(4);
+      // Verify batch weather API was called correctly (once per prefecture)
+      expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalledTimes(2);
 
-      // Verify database upsert was called correctly
+      // Verify database upsert was called correctly (once per prefecture-date combination)
       expect(
         mockTouringIndexRepository.upsertTouringIndex,
       ).toHaveBeenCalledTimes(4);
     });
 
-    test("should call weather API with correct parameters", async () => {
-      const targetDates = ["2025-06-01"];
+    test("should call batch weather API with correct parameters", async () => {
+      const targetDates = ["2025-06-01", "2025-06-02"];
 
       await usecase.execute(targetDates, 1);
 
-      // Check first prefecture (Hokkaido)
-      expect(mockWeatherRepository.getWeather).toHaveBeenCalledWith(
+      // Check first prefecture (Hokkaido) - batch call
+      expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalledWith(
         43.0642, // Hokkaido latitude
         141.3468, // Hokkaido longitude
-        "2025-06-01T03:00:00Z", // 12:00 JST = 03:00 UTC
+        "2025-06-01", // Start date
+        "2025-06-02", // End date
       );
 
-      // Check second prefecture (Tokyo)
-      expect(mockWeatherRepository.getWeather).toHaveBeenCalledWith(
+      // Check second prefecture (Tokyo) - batch call
+      expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalledWith(
         35.6895, // Tokyo latitude
         139.6917, // Tokyo longitude
-        "2025-06-01T03:00:00Z",
+        "2025-06-01", // Start date
+        "2025-06-02", // End date
       );
     });
 
@@ -174,29 +206,37 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     });
 
     test("should handle weather API errors gracefully", async () => {
-      // Create new mock that throws error for Tokyo
-      const weatherMock = mock(
-        async (lat: number, _lon: number, datetime: string) => {
+      // Create new mock that throws error for Tokyo batch call
+      const batchWeatherMock = mock(
+        async (
+          lat: number,
+          _lon: number,
+          _startDate: string,
+          _endDate: string,
+        ) => {
           if (lat === 35.6895) {
             // Tokyo
             throw new Error("Weather API failed");
           }
-          return {
-            datetime,
-            condition: "clear",
-            temperature: 21.5,
-            windSpeed: 2.5,
-            humidity: 50,
-            visibility: 20,
-            precipitationProbability: 0,
-            uvIndex: 3,
-            airQuality: "low",
-          } as Weather;
+          // Return data for Hokkaido
+          return [
+            {
+              datetime: "2025-06-01T03:00:00Z",
+              condition: "clear",
+              temperature: 21.5,
+              windSpeed: 2.5,
+              humidity: 50,
+              visibility: 20,
+              precipitationProbability: 0,
+              uvIndex: 3,
+              airQuality: "low",
+            },
+          ] as Weather[];
         },
       );
 
       // Replace the mock
-      mockWeatherRepository.getWeather = weatherMock;
+      mockWeatherRepository.getWeatherBatch = batchWeatherMock;
 
       const targetDates = ["2025-06-01"];
       const result = await usecase.execute(targetDates, 1);
@@ -213,7 +253,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     });
 
     test("should handle database errors gracefully", async () => {
-      // Create new mock that throws error for second upsert
+      // Create new mock that throws error for second prefecture's first date
       let callCount = 0;
       const upsertMock = mock(async () => {
         callCount++;
@@ -236,28 +276,30 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     });
 
     test("should retry failed operations", async () => {
-      // Create new mock that fails first 2 attempts, then succeeds
+      // Create new mock that fails first 2 batch attempts, then succeeds
       let attemptCount = 0;
-      const weatherMock = mock(async () => {
+      const batchWeatherMock = mock(async () => {
         attemptCount++;
         if (attemptCount <= 2) {
           throw new Error("Temporary failure");
         }
-        return {
-          datetime: "2025-06-01T03:00:00Z",
-          condition: "clear",
-          temperature: 21.5,
-          windSpeed: 2.5,
-          humidity: 50,
-          visibility: 20,
-          precipitationProbability: 0,
-          uvIndex: 3,
-          airQuality: "low",
-        } as Weather;
+        return [
+          {
+            datetime: "2025-06-01T03:00:00Z",
+            condition: "clear",
+            temperature: 21.5,
+            windSpeed: 2.5,
+            humidity: 50,
+            visibility: 20,
+            precipitationProbability: 0,
+            uvIndex: 3,
+            airQuality: "low",
+          },
+        ] as Weather[];
       });
 
       // Replace the mock
-      mockWeatherRepository.getWeather = weatherMock;
+      mockWeatherRepository.getWeatherBatch = batchWeatherMock;
 
       const targetDates = ["2025-06-01"];
       const result = await usecase.execute(targetDates, 3); // Allow 3 retries
@@ -267,7 +309,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(result.failed_inserts).toBe(0);
 
       // Should have been called multiple times due to retries
-      expect(mockWeatherRepository.getWeather).toHaveBeenCalled();
+      expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalled();
     });
   });
 });

@@ -145,8 +145,9 @@ describe("CalculateTouringIndex", () => {
           { wind: 5, expectedScore: 10 }, // Slightly strong
           { wind: 7, expectedScore: 10 }, // Still acceptable
           { wind: 7.1, expectedScore: 0 }, // Too strong
+          { wind: 10, expectedScore: 0 }, // Strong
           { wind: 15, expectedScore: 0 }, // Very strong
-          { wind: 50, expectedScore: 0 }, // Maximum allowed
+          { wind: 100, expectedScore: 0 }, // Maximum allowed (updated from 50)
         ];
 
         testCases.forEach(({ wind, expectedScore }) => {
@@ -419,13 +420,13 @@ describe("CalculateTouringIndex", () => {
         }).toThrow(ZodError);
       });
 
-      test("should throw ZodError for wind speed above maximum (50 m/s)", () => {
+      test("should throw ZodError for wind speed above maximum (100 m/s)", () => {
         expect(() => {
           const invalidWeather = createWeather({
             datetime: "2025-06-01T12:00:00Z",
             condition: "clear",
             temperature: 21.5,
-            windSpeed: 51, // Above maximum
+            windSpeed: 101, // Above maximum (updated from 51)
             humidity: 50,
             visibility: 20,
             precipitationProbability: 0,
