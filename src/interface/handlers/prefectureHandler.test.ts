@@ -107,7 +107,9 @@ describe("prefectureHandler", () => {
       await getPrefectures(mockContext as Context);
 
       // Verify the response is an error
-      expect(capturedResponse.data).toEqual({ error: "Database not available" });
+      expect(capturedResponse.data).toEqual({
+        error: "Database not available",
+      });
       expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     });
 

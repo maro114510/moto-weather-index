@@ -18,4 +18,6 @@ export const prefectureListResponseSchema = z.object({
   count: z.number(),
 });
 
-export type PrefectureListResponse = z.infer<typeof prefectureListResponseSchema>;
+export type PrefectureListResponse = z.infer<
+  typeof prefectureListResponseSchema
+>;
