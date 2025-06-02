@@ -347,7 +347,7 @@ export const prefectureListRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            error: z.string().openapi({ example: "Database not available" }),
+            error: z.string().openapi({ example: "Internal server error" }),
           }),
         },
       },
