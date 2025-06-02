@@ -314,3 +314,43 @@ export const touringIndexBatchRoute = createRoute({
     },
   },
 });
+
+// Prefecture list route
+export const prefectureListRoute = createRoute({
+  method: "get",
+  path: "/api/v1/prefectures",
+  summary: "Get all prefectures",
+  description: "Retrieve the list of all 47 Japanese prefectures",
+  tags: ["Prefecture"],
+  responses: {
+    200: {
+      description: "Prefecture list retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            prefectures: z.array(
+              z.object({
+                id: z.number().openapi({ example: 13 }),
+                name_ja: z.string().openapi({ example: "東京都" }),
+                name_en: z.string().openapi({ example: "Tokyo" }),
+                latitude: z.number().openapi({ example: 35.6762 }),
+                longitude: z.number().openapi({ example: 139.6503 }),
+              }),
+            ),
+            count: z.number().openapi({ example: 47 }),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "Internal server error",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string().openapi({ example: "Database not available" }),
+          }),
+        },
+      },
+    },
+  },
+});
