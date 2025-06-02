@@ -206,22 +206,51 @@ Calculate touring comfort index for a location.
 
 #### GET `/api/v1/touring-index/history`
 
-Get historical touring index data.
+Get historical touring index data for a location.
 
 **Parameters:**
 
 - `lat` (required): Latitude (-90 to 90)
 - `lon` (required): Longitude (-180 to 180)
+- `startDate` (optional): Start date in YYYY-MM-DD format (defaults to 7 days ago)
+- `endDate` (optional): End date in YYYY-MM-DD format (defaults to today)
+- `prefectureId` (optional): Prefecture ID (1-47, auto-detected from coordinates if not provided)
 
 **Response:**
 
 ```json
 {
-  "message": "History feature not implemented yet"
+  "location": {
+    "lat": 35.6762,
+    "lon": 139.6503
+  },
+  "prefecture_id": 13,
+  "data": [
+    {
+      "date": "2025-06-01",
+      "score": 85.5,
+      "factors": {
+        "temperature": 20,
+        "weather": 25,
+        "wind": 15,
+        "humidity": 10,
+        "visibility": 5,
+        "precipitationProbability": 10,
+        "uvIndex": 5,
+        "airQuality": 5
+      },
+      "calculated_at": "2025-06-01T06:00:00Z"
+    }
+  ]
 }
 ```
 
-*Note: This endpoint is implemented as a stub and will be enhanced in future versions.*
+**Features:**
+
+- **Auto Prefecture Detection**: Automatically finds the nearest Japanese prefecture to given coordinates
+- **Flexible Date Range**: Supports custom date ranges with validation (max 30 days, up to 16 days in future)
+- **Historical Data**: Returns calculated touring indices from the database
+- **Factor Breakdown**: Includes detailed scoring factors for each date
 
 #### POST `/api/v1/touring-index/batch`
 
