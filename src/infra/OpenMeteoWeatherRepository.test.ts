@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { OpenMeteoWeatherRepository } from "./OpenMeteoWeatherRepository";
 
+// Helper function to calculate expected datetime format for daily data
+// Based on the implementation: noon JST (12:00) = 03:00 UTC
+function getExpectedDailyDatetime(dateString: string): string {
+  return `${dateString}T03:00:00Z`;
+}
+
+// Helper function to validate ISO datetime format
+function isValidISODateTime(datetime: string): boolean {
+  const isoDateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  return isoDateTimeRegex.test(datetime);
+}
+
 // Simple integration tests without mocking
 describe("OpenMeteoWeatherRepository", () => {
   let repository: OpenMeteoWeatherRepository;
@@ -86,40 +98,38 @@ describe("OpenMeteoWeatherRepository", () => {
       );
 
       // Should return 3 days of data
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(3);        // Check each day's data structure
+        result.forEach((weather, _index) => {
+          expect(weather).toHaveProperty("datetime");
+          expect(weather).toHaveProperty("condition");
+          expect(weather).toHaveProperty("temperature");
+          expect(weather).toHaveProperty("windSpeed");
+          expect(weather).toHaveProperty("humidity");
+          expect(weather).toHaveProperty("visibility");
+          expect(weather).toHaveProperty("precipitationProbability");
+          expect(weather).toHaveProperty("uvIndex");
 
-      // Check each day's data structure
-      result.forEach((weather, _index) => {
-        expect(weather).toHaveProperty("datetime");
-        expect(weather).toHaveProperty("condition");
-        expect(weather).toHaveProperty("temperature");
-        expect(weather).toHaveProperty("windSpeed");
-        expect(weather).toHaveProperty("humidity");
-        expect(weather).toHaveProperty("visibility");
-        expect(weather).toHaveProperty("precipitationProbability");
-        expect(weather).toHaveProperty("uvIndex");
+          // Verify datetime format for batch requests - should be valid ISO format
+          expect(isValidISODateTime(weather.datetime)).toBe(true);
 
-        // Verify datetime format for batch requests
-        expect(weather.datetime).toMatch(/^\d{4}-\d{2}-\d{2}T03:00:00Z$/);
+          // Verify visibility is set to default value for daily data
+          expect(weather.visibility).toBe(20);
 
-        // Verify visibility is set to default value for daily data
-        expect(weather.visibility).toBe(20);
+          // Verify reasonable value ranges
+          expect(weather.temperature).toBeGreaterThan(-50);
+          expect(weather.temperature).toBeLessThan(60);
+          expect(weather.windSpeed).toBeGreaterThanOrEqual(0);
+          expect(weather.humidity).toBeGreaterThanOrEqual(0);
+          expect(weather.humidity).toBeLessThanOrEqual(100);
+          expect(weather.precipitationProbability).toBeGreaterThanOrEqual(0);
+          expect(weather.precipitationProbability).toBeLessThanOrEqual(100);
+          expect(weather.uvIndex).toBeGreaterThanOrEqual(0);
+        });
 
-        // Verify reasonable value ranges
-        expect(weather.temperature).toBeGreaterThan(-50);
-        expect(weather.temperature).toBeLessThan(60);
-        expect(weather.windSpeed).toBeGreaterThanOrEqual(0);
-        expect(weather.humidity).toBeGreaterThanOrEqual(0);
-        expect(weather.humidity).toBeLessThanOrEqual(100);
-        expect(weather.precipitationProbability).toBeGreaterThanOrEqual(0);
-        expect(weather.precipitationProbability).toBeLessThanOrEqual(100);
-        expect(weather.uvIndex).toBeGreaterThanOrEqual(0);
-      });
-
-      // Verify correct date sequence
-      expect(result[0].datetime).toBe("2025-06-01T03:00:00Z");
-      expect(result[1].datetime).toBe("2025-06-02T03:00:00Z");
-      expect(result[2].datetime).toBe("2025-06-03T03:00:00Z");
+        // Verify correct date sequence using dynamic calculation
+        expect(result[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
+        expect(result[1].datetime).toBe(getExpectedDailyDatetime("2025-06-02"));
+        expect(result[2].datetime).toBe(getExpectedDailyDatetime("2025-06-03"));
     });
   });
 
@@ -169,6 +179,9 @@ describe("OpenMeteoWeatherRepository", () => {
         batchResult[0].precipitationProbability,
       );
       expect(singleResult.uvIndex).toBe(batchResult[0].uvIndex);
+
+      // Verify batch result uses the expected datetime format
+      expect(batchResult[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
     });
   });
 
@@ -196,6 +209,50 @@ describe("OpenMeteoWeatherRepository", () => {
       ];
 
       expect(validConditions).toContain(result.condition);
+    });
+  });
+
+  describe("datetime format validation", () => {
+    test("should generate consistent datetime format for daily data", async () => {
+      const testDate = "2025-06-15";
+      const expectedDateTime = getExpectedDailyDatetime(testDate);
+
+      // Verify the helper function generates the expected format
+      expect(expectedDateTime).toBe(`${testDate}T03:00:00Z`);
+      expect(isValidISODateTime(expectedDateTime)).toBe(true);
+
+      // Verify batch result matches expected format
+      const batchResult = await repository.getWeatherBatch(
+        35.6785,
+        139.6823,
+        testDate,
+        testDate,
+      );
+
+      expect(batchResult).toHaveLength(1);
+      expect(batchResult[0].datetime).toBe(expectedDateTime);
+    });
+
+    test("should handle multiple consecutive dates correctly", async () => {
+      const startDate = "2025-06-10";
+      const endDate = "2025-06-12";
+
+      const result = await repository.getWeatherBatch(
+        35.6785,
+        139.6823,
+        startDate,
+        endDate,
+      );
+
+      expect(result).toHaveLength(3);
+
+      // Verify each date follows the expected pattern
+      const expectedDates = ["2025-06-10", "2025-06-11", "2025-06-12"];
+      result.forEach((weather, index) => {
+        const expectedDateTime = getExpectedDailyDatetime(expectedDates[index]);
+        expect(weather.datetime).toBe(expectedDateTime);
+        expect(isValidISODateTime(weather.datetime)).toBe(true);
+      });
     });
   });
 });
