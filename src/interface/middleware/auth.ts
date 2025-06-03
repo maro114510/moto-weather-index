@@ -33,12 +33,20 @@ async function verifyHmacSignature(
       .join("");
 
     // Compare signatures using constant-time comparison
-    const signatureBuffer = Buffer.from(signature.toLowerCase(), "utf-8");
-    const expectedBuffer = Buffer.from(expectedHex.toLowerCase(), "utf-8");
-    if (signatureBuffer.length !== expectedBuffer.length) {
+    const normalizedSignature = signature.toLowerCase();
+    const normalizedExpected = expectedHex.toLowerCase();
+
+    if (normalizedSignature.length !== normalizedExpected.length) {
       return false;
     }
-    return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+
+    // Constant-time comparison to prevent timing attacks
+    let result = 0;
+    for (let i = 0; i < normalizedSignature.length; i++) {
+      result |=
+        normalizedSignature.charCodeAt(i) ^ normalizedExpected.charCodeAt(i);
+    }
+    return result === 0;
   } catch (error) {
     console.error("HMAC verification failed:", error);
     return false;

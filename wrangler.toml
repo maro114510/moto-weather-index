@@ -9,6 +9,9 @@ LOG_LEVEL = "INFO"  # DEBUG, INFO, WARN, ERROR
 [triggers]
 crons = ["0 19 * * *"]  # UTC 19:00 = JST 4:00
 
+[observability.logs]
+enabled = true
+
 [[kv_namespaces]]
 binding = "OPEN_METEO_CACHE"
 id = "489913e659dd4567b61be0b650c6fd1a"
