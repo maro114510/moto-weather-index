@@ -1,11 +1,11 @@
 import type { MiddlewareHandler } from "hono";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 
-const CORS_ORIGIN = [
+const ALLOWED_ORIGINS = [
   "https://moto-weather-index-front.pages.dev",
   "https://moto-weather-index-front.vercel.app",
   "http://localhost:3000",
-].join(", ");
+];
 const CORS_METHODS = "GET, POST, OPTIONS";
 const CORS_HEADERS = "Content-Type";
 
