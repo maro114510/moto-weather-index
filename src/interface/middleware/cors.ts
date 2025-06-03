@@ -4,6 +4,7 @@ import { HTTP_STATUS } from "../../constants/httpStatus";
 const ALLOWED_ORIGINS = [
   "https://moto-weather-index-front.pages.dev",
   "https://moto-weather-index-front.vercel.app",
+  "https://moto-weather-index.page.stelzen.dev",
   "http://localhost:3000",
 ];
 const CORS_METHODS = "GET, POST, OPTIONS";
