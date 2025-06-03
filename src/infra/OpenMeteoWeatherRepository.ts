@@ -136,19 +136,18 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
 
     try {
       const date = datetime.slice(0, 10);
-      const hour = Number(datetime.slice(11, 13));
 
       const params = {
         latitude: lat,
         longitude: lon,
-        hourly: [
-          "temperature_2m",
-          "relative_humidity_2m",
-          "windspeed_10m",
-          "visibility",
-          "precipitation_probability",
+        daily: [
           "weathercode",
-          "uv_index",
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "windspeed_10m_max",
+          "relative_humidity_2m_max",
+          "precipitation_probability_max",
+          "uv_index_max",
         ].join(","),
         start_date: date,
         end_date: date,
@@ -160,7 +159,6 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
         ...context,
         params: {
           date,
-          hour,
           timezone: APP_CONFIG.DEFAULT_TIMEZONE,
         },
       });
@@ -174,8 +172,8 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
         responseSize: JSON.stringify(res.data).length,
       });
 
-      const h = res.data.hourly;
-      if (!h) {
+      const daily = res.data.daily;
+      if (!daily || !daily.time) {
         logger.error("Invalid API response structure", {
           ...context,
           operation: "api_response_validation",
@@ -184,30 +182,27 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
         throw new Error("Invalid OpenMeteo API response structure");
       }
 
-      const idx = h.time.findIndex(
-        (t: string) => t.startsWith(date) && Number(t.slice(11, 13)) === hour,
-      );
+      const idx = daily.time.findIndex((t: string) => t === date);
 
       if (idx === -1) {
-        logger.error("Weather data not found for specified time", {
+        logger.error("Weather data not found for specified date", {
           ...context,
-          operation: "time_matching_error",
+          operation: "date_matching_error",
           requestedDate: date,
-          requestedHour: hour,
-          availableTimes: h.time ? h.time.slice(0, 5) : "undefined",
+          availableDates: daily.time ? daily.time.slice(0, 5) : "undefined",
         });
-        throw new Error("Weather data not found for specified time");
+        throw new Error("Weather data not found for specified date");
       }
 
-      logger.debug("Found matching time index", {
+      logger.debug("Found matching date index", {
         ...context,
-        operation: "time_matching",
-        requestedTime: `${date} ${hour}:00`,
-        matchedTime: h.time[idx],
+        operation: "date_matching",
+        requestedDate: date,
+        matchedDate: daily.time[idx],
         matchedIndex: idx,
       });
 
-      const weatherCode = h.weathercode[idx];
+      const weatherCode = daily.weathercode[idx];
       const condition = mapWeatherCode(weatherCode);
 
       logger.debug("Weather code mapped", {
@@ -220,12 +215,13 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       const weatherData = {
         datetime,
         condition,
-        temperature: h.temperature_2m[idx],
-        windSpeed: h.windspeed_10m[idx],
-        humidity: h.relative_humidity_2m[idx],
-        visibility: h.visibility[idx] / 1000,
-        precipitationProbability: h.precipitation_probability[idx],
-        uvIndex: h.uv_index[idx],
+        temperature:
+          (daily.temperature_2m_max[idx] + daily.temperature_2m_min[idx]) / 2,
+        windSpeed: daily.windspeed_10m_max[idx],
+        humidity: daily.relative_humidity_2m_max[idx],
+        visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
+        precipitationProbability: daily.precipitation_probability_max[idx],
+        uvIndex: daily.uv_index_max[idx],
       };
 
       logger.info("Weather data successfully fetched and processed", {
@@ -349,7 +345,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
             (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
           windSpeed: daily.windspeed_10m_max[i],
           humidity: daily.relative_humidity_2m_max[i],
-          visibility: 20, // Default visibility for daily data
+          visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
           precipitationProbability: daily.precipitation_probability_max[i],
           uvIndex: daily.uv_index_max[i],
         };
