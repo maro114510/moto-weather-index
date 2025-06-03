@@ -98,38 +98,38 @@ describe("OpenMeteoWeatherRepository", () => {
       );
 
       // Should return 3 days of data
-      expect(result).toHaveLength(3);        // Check each day's data structure
-        result.forEach((weather, _index) => {
-          expect(weather).toHaveProperty("datetime");
-          expect(weather).toHaveProperty("condition");
-          expect(weather).toHaveProperty("temperature");
-          expect(weather).toHaveProperty("windSpeed");
-          expect(weather).toHaveProperty("humidity");
-          expect(weather).toHaveProperty("visibility");
-          expect(weather).toHaveProperty("precipitationProbability");
-          expect(weather).toHaveProperty("uvIndex");
+      expect(result).toHaveLength(3); // Check each day's data structure
+      result.forEach((weather, _index) => {
+        expect(weather).toHaveProperty("datetime");
+        expect(weather).toHaveProperty("condition");
+        expect(weather).toHaveProperty("temperature");
+        expect(weather).toHaveProperty("windSpeed");
+        expect(weather).toHaveProperty("humidity");
+        expect(weather).toHaveProperty("visibility");
+        expect(weather).toHaveProperty("precipitationProbability");
+        expect(weather).toHaveProperty("uvIndex");
 
-          // Verify datetime format for batch requests - should be valid ISO format
-          expect(isValidISODateTime(weather.datetime)).toBe(true);
+        // Verify datetime format for batch requests - should be valid ISO format
+        expect(isValidISODateTime(weather.datetime)).toBe(true);
 
-          // Verify visibility is set to default value for daily data
-          expect(weather.visibility).toBe(20);
+        // Verify visibility is set to default value for daily data
+        expect(weather.visibility).toBe(20);
 
-          // Verify reasonable value ranges
-          expect(weather.temperature).toBeGreaterThan(-50);
-          expect(weather.temperature).toBeLessThan(60);
-          expect(weather.windSpeed).toBeGreaterThanOrEqual(0);
-          expect(weather.humidity).toBeGreaterThanOrEqual(0);
-          expect(weather.humidity).toBeLessThanOrEqual(100);
-          expect(weather.precipitationProbability).toBeGreaterThanOrEqual(0);
-          expect(weather.precipitationProbability).toBeLessThanOrEqual(100);
-          expect(weather.uvIndex).toBeGreaterThanOrEqual(0);
-        });
+        // Verify reasonable value ranges
+        expect(weather.temperature).toBeGreaterThan(-50);
+        expect(weather.temperature).toBeLessThan(60);
+        expect(weather.windSpeed).toBeGreaterThanOrEqual(0);
+        expect(weather.humidity).toBeGreaterThanOrEqual(0);
+        expect(weather.humidity).toBeLessThanOrEqual(100);
+        expect(weather.precipitationProbability).toBeGreaterThanOrEqual(0);
+        expect(weather.precipitationProbability).toBeLessThanOrEqual(100);
+        expect(weather.uvIndex).toBeGreaterThanOrEqual(0);
+      });
 
-        // Verify correct date sequence using dynamic calculation
-        expect(result[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
-        expect(result[1].datetime).toBe(getExpectedDailyDatetime("2025-06-02"));
-        expect(result[2].datetime).toBe(getExpectedDailyDatetime("2025-06-03"));
+      // Verify correct date sequence using dynamic calculation
+      expect(result[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
+      expect(result[1].datetime).toBe(getExpectedDailyDatetime("2025-06-02"));
+      expect(result[2].datetime).toBe(getExpectedDailyDatetime("2025-06-03"));
     });
   });
 
@@ -181,7 +181,9 @@ describe("OpenMeteoWeatherRepository", () => {
       expect(singleResult.uvIndex).toBe(batchResult[0].uvIndex);
 
       // Verify batch result uses the expected datetime format
-      expect(batchResult[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
+      expect(batchResult[0].datetime).toBe(
+        getExpectedDailyDatetime("2025-06-01"),
+      );
     });
   });
 

@@ -219,7 +219,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
           (daily.temperature_2m_max[idx] + daily.temperature_2m_min[idx]) / 2,
         windSpeed: daily.windspeed_10m_max[idx],
         humidity: daily.relative_humidity_2m_max[idx],
-        visibility: 20, // Default visibility for daily data
+        visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
         precipitationProbability: daily.precipitation_probability_max[idx],
         uvIndex: daily.uv_index_max[idx],
       };
@@ -345,7 +345,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
             (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
           windSpeed: daily.windspeed_10m_max[i],
           humidity: daily.relative_humidity_2m_max[i],
-          visibility: 20, // Default visibility for daily data
+          visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
           precipitationProbability: daily.precipitation_probability_max[i],
           uvIndex: daily.uv_index_max[i],
         };
