@@ -9,6 +9,7 @@ import {
 } from "./handlers/touringIndexHandler";
 import { getWeather } from "./handlers/weatherHandler";
 import { authMiddleware } from "./middleware/auth";
+import { corsMiddleware } from "./middleware/cors";
 import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
 import {
@@ -23,6 +24,7 @@ import {
 export const app = new OpenAPIHono();
 
 // Apply global middleware
+app.use("*", corsMiddleware);
 app.use("*", loggingMiddleware);
 app.use("*", errorHandlingMiddleware);
 
