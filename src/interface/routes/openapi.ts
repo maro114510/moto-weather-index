@@ -267,7 +267,8 @@ export const touringIndexBatchRoute = createRoute({
       }),
       startDate: z.string().optional().openapi({
         example: "2025-06-15",
-        description: "Custom start date in YYYY-MM-DD format (optional). Must be within last 7 days or up to 16 days in future. Falls back to BATCH_START_DATE environment variable if not provided.",
+        description:
+          "Custom start date in YYYY-MM-DD format (optional). Must be within last 7 days or up to 16 days in future. Falls back to BATCH_START_DATE environment variable if not provided.",
       }),
     }),
   },
@@ -279,9 +280,10 @@ export const touringIndexBatchRoute = createRoute({
           schema: z.object({
             status: z.string().openapi({ example: "completed" }),
             duration_ms: z.number().openapi({ example: 15432 }),
-            start_date: z.string().optional().openapi({ 
+            start_date: z.string().optional().openapi({
               example: "2025-06-15",
-              description: "The actual start date used for batch processing (may be from parameter, environment variable, or default)"
+              description:
+                "The actual start date used for batch processing (may be from parameter, environment variable, or default)",
             }),
             target_dates: z.array(z.string()).openapi({
               example: ["2024-01-01", "2024-01-02", "2024-01-03"],

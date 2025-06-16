@@ -303,10 +303,11 @@ export async function postTouringIndexBatch(c: Context) {
     // Generate target dates - use custom start date if provided
     let targetDates: string[];
     if (effectiveStartDate) {
-      targetDates = BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
-        effectiveStartDate,
-        days,
-      );
+      targetDates =
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          effectiveStartDate,
+          days,
+        );
     } else {
       targetDates = BatchCalculateTouringIndexUsecase.generateTargetDates(days);
     }
