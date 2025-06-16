@@ -71,6 +71,51 @@ describe("dateUtils", () => {
 
       expect(() => validateDateRange(date, date)).not.toThrow();
     });
+
+    test("should reject invalid startDate format", () => {
+      expect(() => validateDateRange("2024/06/01", "2024-06-02")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateDateRange("24-06-01", "2024-06-02")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateDateRange("2024-6-1", "2024-06-02")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+    });
+
+    test("should reject invalid endDate format", () => {
+      expect(() => validateDateRange("2024-06-01", "2024/06/02")).toThrow(
+        "endDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateDateRange("2024-06-01", "24-06-02")).toThrow(
+        "endDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateDateRange("2024-06-01", "2024-6-2")).toThrow(
+        "endDate must be in YYYY-MM-DD format",
+      );
+    });
+
+    test("should reject invalid dates", () => {
+      expect(() => validateDateRange("2024-02-30", "2024-03-01")).toThrow(
+        "startDate is not a valid date",
+      );
+      expect(() => validateDateRange("2024-06-01", "2024-13-01")).toThrow(
+        "endDate is not a valid date",
+      );
+      expect(() => validateDateRange("2024-06-32", "2024-07-01")).toThrow(
+        "startDate is not a valid date",
+      );
+    });
+
+    test("should reject non-date strings", () => {
+      expect(() => validateDateRange("not-a-date", "2024-06-01")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateDateRange("2024-06-01", "invalid")).toThrow(
+        "endDate must be in YYYY-MM-DD format",
+      );
+    });
   });
 
   describe("validateBatchStartDate", () => {
@@ -129,6 +174,42 @@ describe("dateUtils", () => {
 
       expect(() => validateBatchStartDate(dateString)).toThrow(
         "Batch start date cannot be more than 16 days in the future",
+      );
+    });
+
+    test("should reject invalid date format", () => {
+      expect(() => validateBatchStartDate("2024/06/01")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateBatchStartDate("24-06-01")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateBatchStartDate("2024-6-1")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+    });
+
+    test("should reject invalid dates", () => {
+      expect(() => validateBatchStartDate("2024-02-30")).toThrow(
+        "startDate is not a valid date",
+      );
+      expect(() => validateBatchStartDate("2024-13-01")).toThrow(
+        "startDate is not a valid date",
+      );
+      expect(() => validateBatchStartDate("2024-06-32")).toThrow(
+        "startDate is not a valid date",
+      );
+    });
+
+    test("should reject non-date strings", () => {
+      expect(() => validateBatchStartDate("not-a-date")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateBatchStartDate("invalid")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+      expect(() => validateBatchStartDate("")).toThrow(
+        "startDate must be in YYYY-MM-DD format",
       );
     });
   });
