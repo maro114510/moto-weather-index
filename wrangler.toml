@@ -5,6 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARN, ERROR
+# BATCH_START_DATE = "2025-06-15"  # Optional: Custom start date for batch processing (YYYY-MM-DD format)
+                                   # Must be within the last 7 days. If not set, uses today as start date.
 
 [triggers]
 crons = ["0 19 * * *"]  # UTC 19:00 = JST 4:00

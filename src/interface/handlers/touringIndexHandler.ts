@@ -276,15 +276,19 @@ export async function postTouringIndexBatch(c: Context) {
 
   try {
     // Validate query parameters
-    const { days, maxRetries } = batchParametersSchema.parse({
+    const { days, maxRetries, startDate } = batchParametersSchema.parse({
       days: c.req.query("days"),
       maxRetries: c.req.query("maxRetries"),
+      startDate: c.req.query("startDate"),
     });
+
+    // Use custom start date if provided, otherwise fall back to environment variable, then default behavior
+    const effectiveStartDate = startDate || c.env?.BATCH_START_DATE;
 
     logger.info("Starting batch processing", {
       ...requestContext,
       operation: "batch_processing_start",
-      parameters: { days, maxRetries },
+      parameters: { days, maxRetries, startDate: effectiveStartDate },
     });
 
     // Create repositories and usecase
@@ -296,9 +300,17 @@ export async function postTouringIndexBatch(c: Context) {
       touringIndexRepo,
     );
 
-    // Generate target dates (today + next N days)
-    const targetDates =
-      BatchCalculateTouringIndexUsecase.generateTargetDates(days);
+    // Generate target dates - use custom start date if provided
+    let targetDates: string[];
+    if (effectiveStartDate) {
+      targetDates =
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          effectiveStartDate,
+          days,
+        );
+    } else {
+      targetDates = BatchCalculateTouringIndexUsecase.generateTargetDates(days);
+    }
 
     logger.info("Target dates generated for batch processing", {
       ...requestContext,
@@ -346,6 +358,7 @@ export async function postTouringIndexBatch(c: Context) {
       {
         status: "completed",
         duration_ms: duration,
+        start_date: effectiveStartDate || undefined,
         target_dates: targetDates,
         summary: {
           total_processed: result.total_processed,

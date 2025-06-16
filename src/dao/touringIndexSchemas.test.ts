@@ -316,5 +316,55 @@ describe("touringIndexSchemas", () => {
       expect(maxResult.days).toBe(30);
       expect(maxResult.maxRetries).toBe(10);
     });
+
+    test("should handle valid startDate parameter", () => {
+      const validInput = {
+        days: "7",
+        startDate: "2025-06-15",
+      };
+
+      const result = batchParametersSchema.parse(validInput);
+      expect(result.days).toBe(7);
+      expect(result.startDate).toBe("2025-06-15");
+    });
+
+    test("should handle undefined startDate", () => {
+      const validInput = {
+        days: "7",
+      };
+
+      const result = batchParametersSchema.parse(validInput);
+      expect(result.days).toBe(7);
+      expect(result.startDate).toBeUndefined();
+    });
+
+    test("should reject invalid startDate format", () => {
+      const invalidInput = {
+        startDate: "2025/06/15", // Wrong format
+      };
+
+      expect(() => batchParametersSchema.parse(invalidInput)).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+    });
+
+    test("should reject invalid startDate", () => {
+      const invalidInput = {
+        startDate: "2025-13-99", // Invalid date
+      };
+
+      expect(() => batchParametersSchema.parse(invalidInput)).toThrow(
+        "startDate must be in YYYY-MM-DD format",
+      );
+    });
+
+    test("should accept boundary startDate values", () => {
+      const validInput = {
+        startDate: "2025-01-01",
+      };
+
+      const result = batchParametersSchema.parse(validInput);
+      expect(result.startDate).toBe("2025-01-01");
+    });
   });
 });

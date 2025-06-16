@@ -250,18 +250,25 @@ export const touringIndexBatchRoute = createRoute({
   path: "/api/v1/touring-index/batch",
   summary: "Execute batch touring index calculation",
   description:
-    "Calculate touring index for all prefectures for multiple days (requires authentication)",
+    "Calculate touring index for all prefectures for multiple days (requires authentication). " +
+    "Start date can be specified as query parameter or environment variable (BATCH_START_DATE). " +
+    "Start date must be within the last 7 days or up to 16 days in the future.",
   tags: ["Touring Index", "Batch Operations"],
   security: [{ bearerAuth: [] }],
   request: {
     query: z.object({
       days: z.string().optional().openapi({
         example: "7",
-        description: "Number of days to calculate (1-30, default: 7)",
+        description: "Number of days to calculate (1-30, default: 16)",
       }),
       maxRetries: z.string().optional().openapi({
         example: "3",
         description: "Maximum retry attempts (1-10, default: 3)",
+      }),
+      startDate: z.string().optional().openapi({
+        example: "2025-06-15",
+        description:
+          "Custom start date in YYYY-MM-DD format (optional). Must be within last 7 days or up to 16 days in future. Falls back to BATCH_START_DATE environment variable if not provided.",
       }),
     }),
   },
@@ -273,6 +280,11 @@ export const touringIndexBatchRoute = createRoute({
           schema: z.object({
             status: z.string().openapi({ example: "completed" }),
             duration_ms: z.number().openapi({ example: 15432 }),
+            start_date: z.string().optional().openapi({
+              example: "2025-06-15",
+              description:
+                "The actual start date used for batch processing (may be from parameter, environment variable, or default)",
+            }),
             target_dates: z.array(z.string()).openapi({
               example: ["2024-01-01", "2024-01-02", "2024-01-03"],
             }),
@@ -288,6 +300,18 @@ export const touringIndexBatchRoute = createRoute({
               .openapi({
                 example: ["Prefecture 01: Weather data unavailable"],
               }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Invalid query parameters",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string().openapi({
+              example: "Batch start date must be within the last 7 days",
+            }),
           }),
         },
       },

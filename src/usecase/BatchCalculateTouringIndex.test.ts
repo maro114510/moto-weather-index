@@ -312,4 +312,62 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalled();
     });
   });
+
+  describe("generateTargetDatesFromStart", () => {
+    test("should generate correct dates from custom start date", () => {
+      const startDate = "2025-06-10";
+      const days = 5;
+
+      const dates =
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          startDate,
+          days,
+        );
+
+      expect(dates).toHaveLength(5);
+      expect(dates[0]).toBe("2025-06-10");
+      expect(dates[1]).toBe("2025-06-11");
+      expect(dates[2]).toBe("2025-06-12");
+      expect(dates[3]).toBe("2025-06-13");
+      expect(dates[4]).toBe("2025-06-14");
+    });
+
+    test("should use default 16 days when days parameter not provided", () => {
+      const startDate = "2025-06-10";
+
+      const dates =
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          startDate,
+        );
+
+      expect(dates).toHaveLength(16);
+      expect(dates[0]).toBe("2025-06-10");
+      expect(dates[15]).toBe("2025-06-25");
+    });
+
+    test("should validate start date and throw error for invalid date", () => {
+      const invalidStartDate = "2025-01-01"; // Too far in the past
+
+      expect(() => {
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          invalidStartDate,
+        );
+      }).toThrow("Batch start date must be within the last 7 days");
+    });
+
+    test("should work with date within last 7 days", () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 3); // 3 days ago
+      const startDate = pastDate.toISOString().split("T")[0];
+
+      const dates =
+        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+          startDate,
+          3,
+        );
+
+      expect(dates).toHaveLength(3);
+      expect(dates[0]).toBe(startDate);
+    });
+  });
 });
