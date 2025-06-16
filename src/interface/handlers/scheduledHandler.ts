@@ -18,10 +18,10 @@ export async function scheduledHandler(
   env: Env,
   _ctx: ExecutionContext,
 ): Promise<void> {
-  console.log(
-    "Starting scheduled batch calculation at",
-    new Date().toISOString(),
-  );
+  logger.info("Starting scheduled batch calculation", {
+    operation: "batch_processing",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     // Check if database is available
@@ -44,20 +44,32 @@ export async function scheduledHandler(
     // Generate target dates - use custom start date if provided
     let targetDates: string[];
     if (env.BATCH_START_DATE) {
-      console.log(`Using custom start date: ${env.BATCH_START_DATE}`);
+      logger.info("Using custom start date for batch processing", {
+        operation: "batch_processing",
+        startDate: env.BATCH_START_DATE,
+      });
       targetDates =
         BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
           env.BATCH_START_DATE,
           days,
         );
     } else {
-      console.log("Using default start date (today)");
+      logger.info("Using default start date for batch processing", {
+        operation: "batch_processing",
+        startDate: "today",
+      });
       targetDates = BatchCalculateTouringIndexUsecase.generateTargetDates(days);
     }
 
-    console.log(
-      `Starting batch processing for ${days} days (${targetDates.length} dates) from ${targetDates[0]} to ${targetDates[targetDates.length - 1]}...`,
-    );
+    logger.info("Starting batch processing", {
+      operation: "batch_processing",
+      days,
+      totalDates: targetDates.length,
+      dateRange: {
+        from: targetDates[0],
+        to: targetDates[targetDates.length - 1],
+      },
+    });
 
     // Execute batch processing
     const startTime = Date.now();
@@ -65,13 +77,21 @@ export async function scheduledHandler(
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    console.log(`Batch processing completed in ${duration}ms`);
-    console.log(
-      `Summary: ${result.successful_inserts}/${result.total_processed} successful inserts`,
-    );
+    logger.info("Batch processing completed", {
+      operation: "batch_processing",
+      duration,
+      summary: {
+        successfulInserts: result.successful_inserts,
+        totalProcessed: result.total_processed,
+      },
+    });
 
     if (result.errors.length > 0) {
-      console.warn("Batch processing completed with errors:", result.errors);
+      logger.warn("Batch processing completed with errors", {
+        operation: "batch_processing",
+        errorCount: result.errors.length,
+        errors: result.errors,
+      });
     }
   } catch (error) {
     logger.error(
