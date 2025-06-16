@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateDateRange } from "./dateUtils";
+import { validateBatchStartDate, validateDateRange } from "./dateUtils";
 
 describe("dateUtils", () => {
   describe("validateDateRange", () => {
@@ -70,6 +70,66 @@ describe("dateUtils", () => {
       const date = "2024-06-01";
 
       expect(() => validateDateRange(date, date)).not.toThrow();
+    });
+  });
+
+  describe("validateBatchStartDate", () => {
+    test("should accept today as start date", () => {
+      const today = new Date().toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(today)).not.toThrow();
+    });
+
+    test("should accept date within last 7 days", () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 3); // 3 days ago
+      const dateString = pastDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).not.toThrow();
+    });
+
+    test("should accept exactly 7 days ago", () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 7);
+      const dateString = pastDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).not.toThrow();
+    });
+
+    test("should reject date older than 7 days", () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 8);
+      const dateString = pastDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).toThrow(
+        "Batch start date must be within the last 7 days",
+      );
+    });
+
+    test("should accept future date within 16 days", () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 10);
+      const dateString = futureDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).not.toThrow();
+    });
+
+    test("should accept exactly 16 days in the future", () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 16);
+      const dateString = futureDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).not.toThrow();
+    });
+
+    test("should reject date more than 16 days in the future", () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 17);
+      const dateString = futureDate.toISOString().split("T")[0];
+
+      expect(() => validateBatchStartDate(dateString)).toThrow(
+        "Batch start date cannot be more than 16 days in the future",
+      );
     });
   });
 });

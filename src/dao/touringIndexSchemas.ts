@@ -130,6 +130,26 @@ export const batchParametersSchema = z.object({
       }
       return num;
     }),
+  startDate: z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (!val) return true; // Optional parameter
+      // Validate YYYY-MM-DD format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(val)) return false;
+      
+      // Validate that it's actually a valid date
+      const date = new Date(val);
+      const [year, month, day] = val.split('-').map(Number);
+      return date.getFullYear() === year && 
+             date.getMonth() === month - 1 && 
+             date.getDate() === day;
+    }, "startDate must be in YYYY-MM-DD format")
+    .transform((val) => {
+      if (!val) return undefined;
+      return val;
+    }),
 });
 
 // Type inference from schemas

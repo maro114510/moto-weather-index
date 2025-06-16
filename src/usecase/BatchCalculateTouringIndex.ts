@@ -1,4 +1,5 @@
 import type { Weather } from "../domain/Weather";
+import { validateBatchStartDate } from "../utils/dateUtils";
 import { logger } from "../utils/logger";
 import { calculateTouringIndex } from "./CalculateTouringIndex";
 
@@ -367,6 +368,40 @@ export class BatchCalculateTouringIndexUsecase {
       const dateString = targetDate.toISOString().split("T")[0];
       dates.push(dateString);
     }
+
+    return dates;
+  }
+
+  /**
+   * Generate array of date strings starting from a specific date
+   * @param startDate Start date in YYYY-MM-DD format
+   * @param days Number of days to generate (default: 16)
+   * @returns Array of date strings in YYYY-MM-DD format
+   */
+  static generateTargetDatesFromStart(startDate: string, days = 16): string[] {
+    // Validate the start date
+    validateBatchStartDate(startDate);
+
+    const dates: string[] = [];
+    const start = new Date(startDate);
+
+    for (let i = 0; i < days; i++) {
+      const targetDate = new Date(start);
+      targetDate.setDate(start.getDate() + i);
+
+      // Format as YYYY-MM-DD
+      const dateString = targetDate.toISOString().split("T")[0];
+      dates.push(dateString);
+    }
+
+    logger.info("Generated target dates from custom start date", {
+      operation: "generate_target_dates_from_start",
+      startDate,
+      days,
+      firstDate: dates[0],
+      lastDate: dates[dates.length - 1],
+      totalDates: dates.length,
+    });
 
     return dates;
   }
