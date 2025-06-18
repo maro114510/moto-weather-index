@@ -21,6 +21,7 @@ import {
   calculateDistance,
   findNearestPrefecture,
 } from "../../utils/prefectureUtils";
+import type { TouringIndexHistoryRecord, TouringIndexResponse, TouringIndexHistoryResponse } from "../../types/api";
 import { handleZodError } from "../utils/errorHandling";
 
 /**
@@ -64,7 +65,7 @@ export async function getTouringIndex(c: Context) {
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
     const { score, breakdown } = calculateTouringIndex(weather);
 
-    const response = {
+    const response: TouringIndexResponse = {
       location: { lat, lon },
       datetime,
       score,
@@ -193,11 +194,14 @@ export async function getTouringIndexHistory(c: Context) {
     });
 
     // Transform data for response
-    const transformedData = historyData.map((record) => {
-      let weatherFactors: any = {};
+    const transformedData: TouringIndexHistoryRecord[] = historyData.map((record) => {
+      let weatherFactors: Record<string, number> = {};
 
       try {
-        weatherFactors = JSON.parse(record.weather_factors_json);
+        const parsed = JSON.parse(record.weather_factors_json);
+        if (typeof parsed === 'object' && parsed !== null) {
+          weatherFactors = parsed;
+        }
       } catch (error) {
         logger.warn("Failed to parse weather factors JSON", {
           ...requestContext,
@@ -215,7 +219,7 @@ export async function getTouringIndexHistory(c: Context) {
       };
     });
 
-    const response = {
+    const response: TouringIndexHistoryResponse = {
       location: { lat, lon },
       prefecture_id: targetPrefectureId,
       data: transformedData,
