@@ -315,34 +315,74 @@ describe("BatchCalculateTouringIndexUsecase", () => {
 
   describe("generateTargetDatesFromStart", () => {
     test("should generate correct dates from custom start date", () => {
-      const startDate = "2025-06-10";
-      const days = 5;
+      // Mock Date to make "2025-06-10" within 7 days
+      const originalDate = Date;
+      const mockDate = new Date("2025-06-15T00:00:00.000Z");
+      global.Date = class extends Date {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate);
+          } else {
+            super(...args);
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
 
-      const dates =
-        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
-          startDate,
-          days,
-        );
+      try {
+        const startDate = "2025-06-10";
+        const days = 5;
 
-      expect(dates).toHaveLength(5);
-      expect(dates[0]).toBe("2025-06-10");
-      expect(dates[1]).toBe("2025-06-11");
-      expect(dates[2]).toBe("2025-06-12");
-      expect(dates[3]).toBe("2025-06-13");
-      expect(dates[4]).toBe("2025-06-14");
+        const dates =
+          BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+            startDate,
+            days,
+          );
+
+        expect(dates).toHaveLength(5);
+        expect(dates[0]).toBe("2025-06-10");
+        expect(dates[1]).toBe("2025-06-11");
+        expect(dates[2]).toBe("2025-06-12");
+        expect(dates[3]).toBe("2025-06-13");
+        expect(dates[4]).toBe("2025-06-14");
+      } finally {
+        global.Date = originalDate;
+      }
     });
 
     test("should use default 16 days when days parameter not provided", () => {
-      const startDate = "2025-06-10";
+      // Mock Date to make "2025-06-10" within 7 days
+      const originalDate = Date;
+      const mockDate = new Date("2025-06-15T00:00:00.000Z");
+      global.Date = class extends Date {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate);
+          } else {
+            super(...args);
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
 
-      const dates =
-        BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
-          startDate,
-        );
+      try {
+        const startDate = "2025-06-10";
 
-      expect(dates).toHaveLength(16);
-      expect(dates[0]).toBe("2025-06-10");
-      expect(dates[15]).toBe("2025-06-25");
+        const dates =
+          BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+            startDate,
+          );
+
+        expect(dates).toHaveLength(16);
+        expect(dates[0]).toBe("2025-06-10");
+        expect(dates[15]).toBe("2025-06-25");
+      } finally {
+        global.Date = originalDate;
+      }
     });
 
     test("should validate start date and throw error for invalid date", () => {
