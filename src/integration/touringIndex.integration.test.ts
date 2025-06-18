@@ -195,7 +195,7 @@ describe("Touring Index Integration Tests", () => {
       };
 
       touringIndexRepo = RepositoryMockFactory.touringIndex();
-      
+
       // Mock the DI container to return a repository with the mocked database
       mock.module("../../di/container", () => ({
         createTouringIndexRepository: mock().mockReturnValue({
@@ -289,10 +289,16 @@ describe("Touring Index Integration Tests", () => {
       // Set up database error scenario
       mockDb.prepare.mockReturnValue({
         all: mock().mockRejectedValue(new Error("Database connection failed")),
-        first: mock().mockRejectedValue(new Error("Database connection failed")),
+        first: mock().mockRejectedValue(
+          new Error("Database connection failed"),
+        ),
         bind: mock().mockReturnValue({
-          all: mock().mockRejectedValue(new Error("Database connection failed")),
-          first: mock().mockRejectedValue(new Error("Database connection failed")),
+          all: mock().mockRejectedValue(
+            new Error("Database connection failed"),
+          ),
+          first: mock().mockRejectedValue(
+            new Error("Database connection failed"),
+          ),
         }),
       });
 
