@@ -1,12 +1,16 @@
 // src/test-utils/mocks.ts
 
-import { mock } from "bun:test";
+import { expect, mock } from "bun:test";
 import type { Context } from "hono";
 import { ZodError } from "zod";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import type { Prefecture } from "../types/prefecture";
 import type { TouringIndexBatchItem } from "../usecase/BatchCalculateTouringIndex";
-import { ApiResponseFixture, PrefectureFixture } from "./fixtures";
+import {
+  ApiResponseFixture,
+  PrefectureFixture,
+  WeatherFixture,
+} from "./fixtures";
 
 /**
  * Mock factory for Hono Context objects
@@ -290,10 +294,26 @@ export class MockScenarioFactory {
     touringIndexRepo: any,
     prefectures: Prefecture[] = PrefectureFixture.list(),
   ) {
-    // Mock weather repository
-    weatherRepo.getWeatherBatch.mockResolvedValue([
-      { datetime: "2025-06-01T12:00:00Z", condition: "clear", temperature: 22 },
-    ]);
+    // Mock weather repository with complete weather data
+    // Use a function to return appropriate number of weather data items based on the date range
+    weatherRepo.getWeatherBatch.mockImplementation(
+      (_lat: number, _lon: number, startDate: string, endDate: string) => {
+        // Calculate number of days between start and end dates (inclusive)
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const dayCount =
+          Math.floor(
+            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+          ) + 1;
+
+        // Return weather data for each day
+        return Promise.resolve(
+          Array(dayCount)
+            .fill(null)
+            .map(() => WeatherFixture.perfect()),
+        );
+      },
+    );
 
     // Mock touring index repository
     touringIndexRepo.getAllPrefectures.mockResolvedValue(prefectures);
