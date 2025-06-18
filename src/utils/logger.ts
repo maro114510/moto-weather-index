@@ -1,4 +1,11 @@
 import { HTTP_STATUS } from "../constants/httpStatus";
+import {
+  CONTEXT_FIELDS,
+  OPERATIONS,
+  type PERFORMANCE_THRESHOLDS,
+  buildErrorContext,
+  buildPerformanceContext,
+} from "../constants/logging";
 
 export enum LogLevel {
   DEBUG = 0,
@@ -265,6 +272,146 @@ class Logger {
       operation: "business_logic",
       businessOperation: operation,
     });
+  }
+
+  // Enhanced standardized logging methods using constants
+
+  /**
+   * Log database operation with performance tracking
+   */
+  dbOperationWithTiming(
+    operation: string,
+    table: string,
+    startTime: number,
+    context: LogContext = {},
+  ) {
+    const performanceContext = buildPerformanceContext(startTime, "DB_NORMAL", {
+      ...context,
+      [CONTEXT_FIELDS.OPERATION]: OPERATIONS.DB_QUERY,
+      dbOperation: operation,
+      table,
+    });
+
+    this.debug(
+      `Database Operation: ${operation} on ${table}`,
+      performanceContext,
+    );
+  }
+
+  /**
+   * Log external API call with performance tracking
+   */
+  externalApiCallWithTiming(
+    service: string,
+    endpoint: string,
+    startTime: number,
+    statusCode: number,
+    context: LogContext = {},
+  ) {
+    const performanceContext = buildPerformanceContext(
+      startTime,
+      "EXTERNAL_API_NORMAL",
+      {
+        ...context,
+        [CONTEXT_FIELDS.OPERATION]: OPERATIONS.EXTERNAL_API_RESPONSE,
+        service,
+        endpoint,
+        [CONTEXT_FIELDS.STATUS_CODE]: statusCode,
+      },
+    );
+
+    const level =
+      statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR
+        ? LogLevel.ERROR
+        : statusCode >= HTTP_STATUS.BAD_REQUEST
+          ? LogLevel.WARN
+          : LogLevel.INFO;
+
+    const message = `External API: ${service} ${endpoint} - ${statusCode} (${performanceContext.duration}ms)`;
+
+    if (level === LogLevel.ERROR) {
+      this.error(message, performanceContext);
+    } else if (level === LogLevel.WARN) {
+      this.warn(message, performanceContext);
+    } else {
+      this.info(message, performanceContext);
+    }
+  }
+
+  /**
+   * Log business logic operation with performance tracking
+   */
+  businessLogicWithTiming(
+    operation: string,
+    startTime: number,
+    success: boolean,
+    context: LogContext = {},
+  ) {
+    const performanceContext = buildPerformanceContext(
+      startTime,
+      "BUSINESS_LOGIC_NORMAL",
+      {
+        ...context,
+        [CONTEXT_FIELDS.OPERATION]: success
+          ? OPERATIONS.BUSINESS_LOGIC_SUCCESS
+          : OPERATIONS.BUSINESS_LOGIC_ERROR,
+        businessOperation: operation,
+        success,
+      },
+    );
+
+    const message = `Business Logic: ${operation} - ${success ? "SUCCESS" : "FAILED"} (${performanceContext.duration}ms)`;
+
+    if (success) {
+      this.info(message, performanceContext);
+    } else {
+      this.error(message, performanceContext);
+    }
+  }
+
+  /**
+   * Log standardized error with enhanced context
+   */
+  errorWithContext(
+    message: string,
+    error: unknown,
+    baseContext: LogContext = {},
+  ) {
+    const errorContext = buildErrorContext(error, {
+      ...baseContext,
+      [CONTEXT_FIELDS.OPERATION]: OPERATIONS.BUSINESS_LOGIC_ERROR,
+    });
+
+    this.error(
+      message,
+      errorContext,
+      error instanceof Error ? error : undefined,
+    );
+  }
+
+  /**
+   * Log batch operation progress
+   */
+  batchOperation(
+    operation: string,
+    processed: number,
+    total: number,
+    context: LogContext = {},
+  ) {
+    const progressPercent =
+      total > 0 ? Math.round((processed / total) * 100) : 0;
+
+    this.info(
+      `Batch Operation: ${operation} - ${processed}/${total} (${progressPercent}%)`,
+      {
+        ...context,
+        [CONTEXT_FIELDS.OPERATION]: OPERATIONS.BATCH_PROCESSING,
+        batchOperation: operation,
+        processed,
+        total,
+        progressPercent,
+      },
+    );
   }
 }
 

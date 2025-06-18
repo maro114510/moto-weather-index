@@ -5,6 +5,7 @@ import { HTTP_STATUS } from "../../constants/httpStatus";
 import { getWeatherSchema } from "../../dao/weatherSchemas";
 import { createWeatherRepository } from "../../di/container";
 import { logger } from "../../utils/logger";
+import { handleZodError } from "../utils/errorHandling";
 
 /**
  * Handler for GET /weather
@@ -55,10 +56,7 @@ export async function getWeather(c: Context) {
     return c.json(weather, HTTP_STATUS.OK);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessage = error.errors
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join(", ");
-      return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+      return handleZodError(c, error);
     }
     throw error;
   }

@@ -13,6 +13,11 @@ import {
   createTouringIndexRepository,
   createWeatherRepository,
 } from "../../di/container";
+import type {
+  TouringIndexHistoryRecord,
+  TouringIndexHistoryResponse,
+  TouringIndexResponse,
+} from "../../types/api";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 import { validateDateRange } from "../../utils/dateUtils";
@@ -21,6 +26,7 @@ import {
   calculateDistance,
   findNearestPrefecture,
 } from "../../utils/prefectureUtils";
+import { handleZodError } from "../utils/errorHandling";
 
 /**
  * Handler for GET /touring-index
@@ -63,7 +69,7 @@ export async function getTouringIndex(c: Context) {
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
     const { score, breakdown } = calculateTouringIndex(weather);
 
-    const response = {
+    const response: TouringIndexResponse = {
       location: { lat, lon },
       datetime,
       score,
@@ -83,13 +89,122 @@ export async function getTouringIndex(c: Context) {
     return c.json(response, HTTP_STATUS.OK);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessage = error.errors
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join(", ");
-      return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+      return handleZodError(c, error);
     }
     throw error;
   }
+}
+
+/**
+ * Validate date range for history query
+ */
+function validateHistoryDateRange(
+  startDate: string,
+  endDate: string,
+  c: Context,
+) {
+  try {
+    validateDateRange(startDate, endDate);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Invalid date range";
+    return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+  }
+  return null;
+}
+
+/**
+ * Get database connection and validate availability
+ */
+function validateDatabaseConnection(c: Context, requestContext: any) {
+  const db = c.env?.DB;
+  if (!db) {
+    logger.error("Database not available for history query", {
+      ...requestContext,
+      operation: "history_db_missing",
+    });
+    return {
+      db: null,
+      error: c.json(
+        { error: "Database not available" },
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ),
+    };
+  }
+  return { db, error: null };
+}
+
+/**
+ * Determine target prefecture ID from parameters or coordinates
+ */
+async function determineTargetPrefectureId(
+  prefectureId: number | undefined,
+  lat: number,
+  lon: number,
+  touringIndexRepo: any,
+  requestContext: any,
+): Promise<number> {
+  if (prefectureId) {
+    return prefectureId;
+  }
+
+  const allPrefectures = await touringIndexRepo.getAllPrefectures();
+  const nearestPrefecture = findNearestPrefecture(lat, lon, allPrefectures);
+
+  logger.info("Found nearest prefecture for coordinates", {
+    ...requestContext,
+    operation: "nearest_prefecture_found",
+    location: { lat, lon },
+    nearestPrefecture: {
+      id: nearestPrefecture.id,
+      name: nearestPrefecture.name_en,
+      distance: `${
+        Math.round(
+          calculateDistance(
+            lat,
+            lon,
+            nearestPrefecture.latitude,
+            nearestPrefecture.longitude,
+          ) * 100,
+        ) / 100
+      }km`,
+    },
+  });
+
+  return nearestPrefecture.id;
+}
+
+/**
+ * Transform database records to API response format
+ */
+function transformHistoryData(
+  historyData: any[],
+  requestContext: any,
+): TouringIndexHistoryRecord[] {
+  return historyData.map((record) => {
+    let weatherFactors: Record<string, number> = {};
+
+    try {
+      const parsed = JSON.parse(record.weather_factors_json);
+      if (typeof parsed === "object" && parsed !== null) {
+        weatherFactors = parsed;
+      }
+    } catch (error) {
+      logger.warn("Failed to parse weather factors JSON", {
+        ...requestContext,
+        recordId: record.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      weatherFactors = {};
+    }
+
+    return {
+      date: record.date,
+      score: record.score,
+      factors: weatherFactors,
+      calculated_at: record.calculated_at,
+    };
+  });
 }
 
 /**
@@ -122,61 +237,30 @@ export async function getTouringIndexHistory(c: Context) {
     });
 
     // Validate date range
-    try {
-      validateDateRange(startDate, endDate);
-    } catch (error) {
-      // Date validation errors should return 400 Bad Request
-      const errorMessage =
-        error instanceof Error ? error.message : "Invalid date range";
-      return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+    const dateValidationError = validateHistoryDateRange(startDate, endDate, c);
+    if (dateValidationError) {
+      return dateValidationError;
     }
 
-    // Get D1 database from environment
-    const db = c.env?.DB;
-    if (!db) {
-      logger.error("Database not available for history query", {
-        ...requestContext,
-        operation: "history_db_missing",
-      });
-      return c.json(
-        { error: "Database not available" },
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      );
+    // Get database connection
+    const { db, error: dbError } = validateDatabaseConnection(
+      c,
+      requestContext,
+    );
+    if (dbError) {
+      return dbError;
     }
 
     const touringIndexRepo = createTouringIndexRepository(db);
 
-    let targetPrefectureId: number;
-
-    if (prefectureId) {
-      // Use the specified prefecture ID
-      targetPrefectureId = prefectureId;
-    } else {
-      // Find the nearest prefecture to the given coordinates
-      const allPrefectures = await touringIndexRepo.getAllPrefectures();
-      const nearestPrefecture = findNearestPrefecture(lat, lon, allPrefectures);
-      targetPrefectureId = nearestPrefecture.id;
-
-      logger.info("Found nearest prefecture for coordinates", {
-        ...requestContext,
-        operation: "nearest_prefecture_found",
-        location: { lat, lon },
-        nearestPrefecture: {
-          id: nearestPrefecture.id,
-          name: nearestPrefecture.name_en,
-          distance: `${
-            Math.round(
-              calculateDistance(
-                lat,
-                lon,
-                nearestPrefecture.latitude,
-                nearestPrefecture.longitude,
-              ) * 100,
-            ) / 100
-          }km`,
-        },
-      });
-    }
+    // Determine target prefecture ID
+    const targetPrefectureId = await determineTargetPrefectureId(
+      prefectureId,
+      lat,
+      lon,
+      touringIndexRepo,
+      requestContext,
+    );
 
     // Fetch historical data from database
     const historyData =
@@ -195,29 +279,9 @@ export async function getTouringIndexHistory(c: Context) {
     });
 
     // Transform data for response
-    const transformedData = historyData.map((record) => {
-      let weatherFactors: any = {};
+    const transformedData = transformHistoryData(historyData, requestContext);
 
-      try {
-        weatherFactors = JSON.parse(record.weather_factors_json);
-      } catch (error) {
-        logger.warn("Failed to parse weather factors JSON", {
-          ...requestContext,
-          recordId: record.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        weatherFactors = {};
-      }
-
-      return {
-        date: record.date,
-        score: record.score,
-        factors: weatherFactors,
-        calculated_at: record.calculated_at,
-      };
-    });
-
-    const response = {
+    const response: TouringIndexHistoryResponse = {
       location: { lat, lon },
       prefecture_id: targetPrefectureId,
       data: transformedData,
@@ -233,10 +297,7 @@ export async function getTouringIndexHistory(c: Context) {
     return c.json(response, HTTP_STATUS.OK);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessage = error.errors
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join(", ");
-      return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+      return handleZodError(c, error);
     }
 
     logger.error("Touring index history request failed", {

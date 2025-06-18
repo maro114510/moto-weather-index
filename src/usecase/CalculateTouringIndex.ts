@@ -13,12 +13,10 @@ import {
   calculateTouringScore,
 } from "../domain/TouringScore";
 import type { Weather } from "../domain/Weather";
+import type { TouringIndexResult } from "../types/api";
 
-export function calculateTouringIndex(weather: Weather): {
-  score: number;
-  breakdown: Record<string, number>;
-} {
-  const breakdown = {
+export function calculateTouringIndex(weather: Weather): TouringIndexResult {
+  const breakdown: TouringScoreFactors = {
     weather: weatherScore(weather.condition),
     temperature: temperatureScore(weather.temperature),
     wind: windScore(weather.windSpeed),
@@ -30,6 +28,6 @@ export function calculateTouringIndex(weather: Weather): {
     uvIndex: uvIndexScore(weather.uvIndex),
     airQuality: airQualityScore(weather.airQuality),
   };
-  const score = calculateTouringScore(breakdown as TouringScoreFactors);
+  const score = calculateTouringScore(breakdown);
   return { score, breakdown };
 }
