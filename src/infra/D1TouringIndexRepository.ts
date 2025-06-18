@@ -1,8 +1,8 @@
+import type { Prefecture } from "../types/prefecture";
 import type {
   TouringIndexBatchItem,
   TouringIndexRepository,
 } from "../usecase/BatchCalculateTouringIndex";
-import type { Prefecture } from "../types/prefecture";
 import { logger } from "../utils/logger";
 
 interface TouringIndexRecord {
@@ -58,26 +58,23 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
         )
         .run();
 
-      const dbDuration = Date.now() - dbStartTime;
-
-      logger.debug("Touring index upsert completed successfully", {
-        ...context,
-        operation: "upsert_touring_index_success",
-        dbDuration,
-        weatherFactorsSize: item.weather_factors_json.length,
-        weatherRawSize: item.weather_raw_json.length,
-      });
-    } catch (error) {
-      logger.error(
-        "Failed to upsert touring index",
+      logger.dbOperationWithTiming(
+        "upsert",
+        "touring_index_daily",
+        dbStartTime,
         {
           ...context,
-          operation: "upsert_touring_index_error",
-          sql: sql.replace(/\s+/g, " ").trim(),
-          errorMessage: error instanceof Error ? error.message : String(error),
+          operation: "upsert_touring_index_success",
+          weatherFactorsSize: item.weather_factors_json.length,
+          weatherRawSize: item.weather_raw_json.length,
         },
-        error as Error,
       );
+    } catch (error) {
+      logger.errorWithContext("Failed to upsert touring index", error, {
+        ...context,
+        operation: "upsert_touring_index_error",
+        sql: sql.replace(/\s+/g, " ").trim(),
+      });
 
       throw new Error(
         `Failed to upsert touring index for prefecture ${item.prefecture_id}, date ${item.date}: ${error}`,

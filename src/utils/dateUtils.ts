@@ -56,10 +56,14 @@ export function validateDateRange(startDate: string, endDate: string): void {
 
   // Don't allow future dates beyond configured limit
   const maxFutureDate = new Date();
-  maxFutureDate.setDate(maxFutureDate.getDate() + DATE_CONSTANTS.MAX_FUTURE_DAYS);
+  maxFutureDate.setDate(
+    maxFutureDate.getDate() + DATE_CONSTANTS.MAX_FUTURE_DAYS,
+  );
 
   if (end > maxFutureDate) {
-    throw new Error(`endDate cannot be more than ${DATE_CONSTANTS.MAX_FUTURE_DAYS} days in the future`);
+    throw new Error(
+      `endDate cannot be more than ${DATE_CONSTANTS.MAX_FUTURE_DAYS} days in the future`,
+    );
   }
 
   // Limit to maximum configured days for performance
@@ -69,7 +73,9 @@ export function validateDateRange(startDate: string, endDate: string): void {
     (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
   );
   if (daysDiff > DATE_CONSTANTS.MAX_DATE_RANGE_DAYS) {
-    throw new Error(`Date range cannot exceed ${DATE_CONSTANTS.MAX_DATE_RANGE_DAYS} days`);
+    throw new Error(
+      `Date range cannot exceed ${DATE_CONSTANTS.MAX_DATE_RANGE_DAYS} days`,
+    );
   }
 
   // Note: We allow queries for old dates even if no data exists
@@ -97,7 +103,9 @@ export function validateBatchStartDate(startDate: string): void {
   weekAgo.setDate(today.getDate() - DATE_CONSTANTS.MAX_LOOKBACK_DAYS);
 
   if (start < weekAgo) {
-    throw new Error(`Batch start date must be within the last ${DATE_CONSTANTS.MAX_LOOKBACK_DAYS} days`);
+    throw new Error(
+      `Batch start date must be within the last ${DATE_CONSTANTS.MAX_LOOKBACK_DAYS} days`,
+    );
   }
 
   // Don't allow future dates beyond configured limit

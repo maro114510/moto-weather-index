@@ -189,12 +189,17 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
 
       const apiStartTime = Date.now();
       const res = await axios.get(url, { params });
-      const apiDuration = Date.now() - apiStartTime;
 
-      logger.externalApiResponse("OpenMeteo", url, res.status, apiDuration, {
-        ...context,
-        responseSize: JSON.stringify(res.data).length,
-      });
+      logger.externalApiCallWithTiming(
+        "OpenMeteo",
+        url,
+        apiStartTime,
+        res.status,
+        {
+          ...context,
+          responseSize: JSON.stringify(res.data).length,
+        },
+      );
 
       const daily = res.data.daily;
       if (!daily || !daily.time) {
@@ -320,12 +325,17 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
 
       const apiStartTime = Date.now();
       const res = await axios.get(url, { params });
-      const apiDuration = Date.now() - apiStartTime;
 
-      logger.externalApiResponse("OpenMeteo", url, res.status, apiDuration, {
-        ...context,
-        responseSize: JSON.stringify(res.data).length,
-      });
+      logger.externalApiCallWithTiming(
+        "OpenMeteo",
+        url,
+        apiStartTime,
+        res.status,
+        {
+          ...context,
+          responseSize: JSON.stringify(res.data).length,
+        },
+      );
 
       const daily = res.data.daily;
       if (!daily || !daily.time) {

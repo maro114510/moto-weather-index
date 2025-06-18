@@ -13,6 +13,11 @@ import {
   createTouringIndexRepository,
   createWeatherRepository,
 } from "../../di/container";
+import type {
+  TouringIndexHistoryRecord,
+  TouringIndexHistoryResponse,
+  TouringIndexResponse,
+} from "../../types/api";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 import { validateDateRange } from "../../utils/dateUtils";
@@ -21,7 +26,6 @@ import {
   calculateDistance,
   findNearestPrefecture,
 } from "../../utils/prefectureUtils";
-import type { TouringIndexHistoryRecord, TouringIndexResponse, TouringIndexHistoryResponse } from "../../types/api";
 import { handleZodError } from "../utils/errorHandling";
 
 /**
@@ -94,7 +98,11 @@ export async function getTouringIndex(c: Context) {
 /**
  * Validate date range for history query
  */
-function validateHistoryDateRange(startDate: string, endDate: string, c: Context) {
+function validateHistoryDateRange(
+  startDate: string,
+  endDate: string,
+  c: Context,
+) {
   try {
     validateDateRange(startDate, endDate);
   } catch (error) {
@@ -115,12 +123,12 @@ function validateDatabaseConnection(c: Context, requestContext: any) {
       ...requestContext,
       operation: "history_db_missing",
     });
-    return { 
-      db: null, 
+    return {
+      db: null,
       error: c.json(
         { error: "Database not available" },
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      )
+      ),
     };
   }
   return { db, error: null };
@@ -178,7 +186,7 @@ function transformHistoryData(
 
     try {
       const parsed = JSON.parse(record.weather_factors_json);
-      if (typeof parsed === 'object' && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null) {
         weatherFactors = parsed;
       }
     } catch (error) {
@@ -235,12 +243,15 @@ export async function getTouringIndexHistory(c: Context) {
     }
 
     // Get database connection
-    const { db, error: dbError } = validateDatabaseConnection(c, requestContext);
+    const { db, error: dbError } = validateDatabaseConnection(
+      c,
+      requestContext,
+    );
     if (dbError) {
       return dbError;
     }
 
-    const touringIndexRepo = createTouringIndexRepository(db!);
+    const touringIndexRepo = createTouringIndexRepository(db);
 
     // Determine target prefecture ID
     const targetPrefectureId = await determineTargetPrefectureId(

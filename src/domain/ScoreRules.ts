@@ -38,7 +38,7 @@ const SCORING_CONSTANTS = {
     PRECIPITATION: 0, // drizzle, rain, snow
     UNKNOWN_FALLBACK: 10,
   },
-  
+
   // Temperature scoring (max 20 points)
   TEMPERATURE: {
     IDEAL: 21.5,
@@ -47,7 +47,7 @@ const SCORING_CONSTANTS = {
     MIN_CELSIUS: -50,
     MAX_CELSIUS: 60,
   },
-  
+
   // Wind speed scoring (max 15 points)
   WIND: {
     MAX_SCORE: 15,
@@ -57,32 +57,32 @@ const SCORING_CONSTANTS = {
     SAFE_MAX: 7,
     MAX_SPEED: 100,
   },
-  
+
   // Humidity scoring (max 10 points)
   HUMIDITY: {
     MAX_SCORE: 10,
     IDEAL: 50,
     DEVIATION_DIVISOR: 5,
   },
-  
+
   // Visibility scoring (max 5 points)
   VISIBILITY: {
     EXCELLENT: 15, // km or more
-    GOOD: 10,      // km
-    MODERATE: 6,   // km
+    GOOD: 10, // km
+    MODERATE: 6, // km
     SCORE_EXCELLENT: 5,
     SCORE_GOOD: 4,
     SCORE_MODERATE: 2,
     SCORE_POOR: 0,
     MAX_KM: 100,
   },
-  
+
   // Precipitation probability scoring (max 10 points)
   PRECIPITATION_PROB: {
     MAX_SCORE: 10,
     DIVISOR: 10,
   },
-  
+
   // UV index scoring (max 5 points)
   UV: {
     SAFE_THRESHOLD: 4,
@@ -92,7 +92,7 @@ const SCORING_CONSTANTS = {
     SCORE_HIGH: 0,
     MAX_INDEX: 20,
   },
-  
+
   // Air quality scoring (max 5 points)
   AIR_QUALITY: {
     SCORE_LOW: 5,
@@ -149,11 +149,19 @@ export function weatherScore(condition: WeatherCondition): number {
  */
 export function temperatureScore(temp: number): number {
   // Type and value validation: -50°C to 60°C
-  z.number().min(SCORING_CONSTANTS.TEMPERATURE.MIN_CELSIUS).max(SCORING_CONSTANTS.TEMPERATURE.MAX_CELSIUS).parse(temp);
+  z.number()
+    .min(SCORING_CONSTANTS.TEMPERATURE.MIN_CELSIUS)
+    .max(SCORING_CONSTANTS.TEMPERATURE.MAX_CELSIUS)
+    .parse(temp);
 
   const diff = Math.abs(temp - SCORING_CONSTANTS.TEMPERATURE.IDEAL);
-  const score = SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE - diff * SCORING_CONSTANTS.TEMPERATURE.PENALTY_PER_DEGREE;
-  return Math.max(0, Math.min(SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE, Math.round(score)));
+  const score =
+    SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE -
+    diff * SCORING_CONSTANTS.TEMPERATURE.PENALTY_PER_DEGREE;
+  return Math.max(
+    0,
+    Math.min(SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE, Math.round(score)),
+  );
 }
 /**
  * Convert wind speed (m/s) to score (max 15 points).
@@ -165,10 +173,17 @@ export function windScore(wind: number): number {
   // Type and value validation: 0–100 m/s (extended for daily max values)
   z.number().min(0).max(SCORING_CONSTANTS.WIND.MAX_SPEED).parse(wind);
 
-  if (wind >= SCORING_CONSTANTS.WIND.IDEAL_MIN && wind <= SCORING_CONSTANTS.WIND.IDEAL_MAX) {
+  if (
+    wind >= SCORING_CONSTANTS.WIND.IDEAL_MIN &&
+    wind <= SCORING_CONSTANTS.WIND.IDEAL_MAX
+  ) {
     return SCORING_CONSTANTS.WIND.MAX_SCORE; // Ideal breeze for touring
   }
-  if (wind === 0 || (wind > SCORING_CONSTANTS.WIND.IDEAL_MAX && wind <= SCORING_CONSTANTS.WIND.SAFE_MAX)) {
+  if (
+    wind === 0 ||
+    (wind > SCORING_CONSTANTS.WIND.IDEAL_MAX &&
+      wind <= SCORING_CONSTANTS.WIND.SAFE_MAX)
+  ) {
     return SCORING_CONSTANTS.WIND.MODERATE_SCORE; // Either no wind or slightly strong wind
   }
   if (wind > SCORING_CONSTANTS.WIND.SAFE_MAX) {
@@ -188,8 +203,13 @@ export function humidityScore(humidity: number): number {
   z.number().min(0).max(100).parse(humidity);
 
   const diff = Math.abs(humidity - SCORING_CONSTANTS.HUMIDITY.IDEAL);
-  const score = SCORING_CONSTANTS.HUMIDITY.MAX_SCORE - diff / SCORING_CONSTANTS.HUMIDITY.DEVIATION_DIVISOR;
-  return Math.max(0, Math.min(SCORING_CONSTANTS.HUMIDITY.MAX_SCORE, Math.round(score)));
+  const score =
+    SCORING_CONSTANTS.HUMIDITY.MAX_SCORE -
+    diff / SCORING_CONSTANTS.HUMIDITY.DEVIATION_DIVISOR;
+  return Math.max(
+    0,
+    Math.min(SCORING_CONSTANTS.HUMIDITY.MAX_SCORE, Math.round(score)),
+  );
 }
 
 /**
@@ -225,8 +245,13 @@ export function precipitationProbabilityScore(prob: number): number {
   // Type and value validation: 0–100%
   z.number().min(0).max(100).parse(prob);
 
-  const score = SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE - prob / SCORING_CONSTANTS.PRECIPITATION_PROB.DIVISOR;
-  return Math.max(0, Math.min(SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE, Math.round(score)));
+  const score =
+    SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE -
+    prob / SCORING_CONSTANTS.PRECIPITATION_PROB.DIVISOR;
+  return Math.max(
+    0,
+    Math.min(SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE, Math.round(score)),
+  );
 }
 
 /**
