@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { app } from "./interface/router";
 import { logger } from "./utils/logger";
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8000;
 
 serve({
   fetch: app.fetch,
