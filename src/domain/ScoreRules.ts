@@ -25,6 +25,82 @@
 import { z } from "zod";
 import type { AirQualityLevel, WeatherCondition } from "./Weather";
 
+// Scoring constants for touring index calculation
+const SCORING_CONSTANTS = {
+  // Weather condition scoring (max 30 points)
+  WEATHER: {
+    CLEAR: 30,
+    MOSTLY_CLEAR: 28,
+    PARTLY_CLOUDY: 23,
+    CLOUDY: 15,
+    OVERCAST: 12,
+    FOG: 5,
+    PRECIPITATION: 0, // drizzle, rain, snow
+    UNKNOWN_FALLBACK: 10,
+  },
+  
+  // Temperature scoring (max 20 points)
+  TEMPERATURE: {
+    IDEAL: 21.5,
+    MAX_SCORE: 20,
+    PENALTY_PER_DEGREE: 1,
+    MIN_CELSIUS: -50,
+    MAX_CELSIUS: 60,
+  },
+  
+  // Wind speed scoring (max 15 points)
+  WIND: {
+    MAX_SCORE: 15,
+    MODERATE_SCORE: 10,
+    IDEAL_MIN: 1,
+    IDEAL_MAX: 4,
+    SAFE_MAX: 7,
+    MAX_SPEED: 100,
+  },
+  
+  // Humidity scoring (max 10 points)
+  HUMIDITY: {
+    MAX_SCORE: 10,
+    IDEAL: 50,
+    DEVIATION_DIVISOR: 5,
+  },
+  
+  // Visibility scoring (max 5 points)
+  VISIBILITY: {
+    EXCELLENT: 15, // km or more
+    GOOD: 10,      // km
+    MODERATE: 6,   // km
+    SCORE_EXCELLENT: 5,
+    SCORE_GOOD: 4,
+    SCORE_MODERATE: 2,
+    SCORE_POOR: 0,
+    MAX_KM: 100,
+  },
+  
+  // Precipitation probability scoring (max 10 points)
+  PRECIPITATION_PROB: {
+    MAX_SCORE: 10,
+    DIVISOR: 10,
+  },
+  
+  // UV index scoring (max 5 points)
+  UV: {
+    SAFE_THRESHOLD: 4,
+    MODERATE_THRESHOLD: 6,
+    SCORE_SAFE: 5,
+    SCORE_MODERATE: 3,
+    SCORE_HIGH: 0,
+    MAX_INDEX: 20,
+  },
+  
+  // Air quality scoring (max 5 points)
+  AIR_QUALITY: {
+    SCORE_LOW: 5,
+    SCORE_MEDIUM: 3,
+    SCORE_HIGH: 0,
+  },
+} as const;
+
 /**
  * Zod schema for air quality level.
  */
@@ -44,23 +120,23 @@ const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);
 export function weatherScore(condition: WeatherCondition): number {
   switch (condition) {
     case "clear":
-      return 30;
+      return SCORING_CONSTANTS.WEATHER.CLEAR;
     case "mostly_clear":
-      return 28;
+      return SCORING_CONSTANTS.WEATHER.MOSTLY_CLEAR;
     case "partly_cloudy":
-      return 23;
+      return SCORING_CONSTANTS.WEATHER.PARTLY_CLOUDY;
     case "cloudy":
-      return 15;
+      return SCORING_CONSTANTS.WEATHER.CLOUDY;
     case "overcast":
-      return 12;
+      return SCORING_CONSTANTS.WEATHER.OVERCAST;
     case "fog":
-      return 5;
+      return SCORING_CONSTANTS.WEATHER.FOG;
     case "drizzle":
     case "rain":
     case "snow":
-      return 0;
+      return SCORING_CONSTANTS.WEATHER.PRECIPITATION;
     default:
-      return 10; // unknown fallback score
+      return SCORING_CONSTANTS.WEATHER.UNKNOWN_FALLBACK;
   }
 }
 
@@ -73,12 +149,11 @@ export function weatherScore(condition: WeatherCondition): number {
  */
 export function temperatureScore(temp: number): number {
   // Type and value validation: -50°C to 60°C
-  z.number().min(-50).max(60).parse(temp);
+  z.number().min(SCORING_CONSTANTS.TEMPERATURE.MIN_CELSIUS).max(SCORING_CONSTANTS.TEMPERATURE.MAX_CELSIUS).parse(temp);
 
-  const ideal = 21.5;
-  const diff = Math.abs(temp - ideal);
-  const score = 20 - diff * 1; // 1 point per degree deviation
-  return Math.max(0, Math.min(20, Math.round(score)));
+  const diff = Math.abs(temp - SCORING_CONSTANTS.TEMPERATURE.IDEAL);
+  const score = SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE - diff * SCORING_CONSTANTS.TEMPERATURE.PENALTY_PER_DEGREE;
+  return Math.max(0, Math.min(SCORING_CONSTANTS.TEMPERATURE.MAX_SCORE, Math.round(score)));
 }
 /**
  * Convert wind speed (m/s) to score (max 15 points).
@@ -88,12 +163,18 @@ export function temperatureScore(temp: number): number {
  */
 export function windScore(wind: number): number {
   // Type and value validation: 0–100 m/s (extended for daily max values)
-  z.number().min(0).max(100).parse(wind);
+  z.number().min(0).max(SCORING_CONSTANTS.WIND.MAX_SPEED).parse(wind);
 
-  if (wind >= 1 && wind <= 4) return 15; // Ideal breeze for touring
-  if (wind === 0 || (wind > 4 && wind <= 7)) return 10; // Either no wind or slightly strong wind
-  if (wind > 7) return 0; // Too strong, may be unsafe
-  return 10; // For negative/invalid input, fallback to mid score
+  if (wind >= SCORING_CONSTANTS.WIND.IDEAL_MIN && wind <= SCORING_CONSTANTS.WIND.IDEAL_MAX) {
+    return SCORING_CONSTANTS.WIND.MAX_SCORE; // Ideal breeze for touring
+  }
+  if (wind === 0 || (wind > SCORING_CONSTANTS.WIND.IDEAL_MAX && wind <= SCORING_CONSTANTS.WIND.SAFE_MAX)) {
+    return SCORING_CONSTANTS.WIND.MODERATE_SCORE; // Either no wind or slightly strong wind
+  }
+  if (wind > SCORING_CONSTANTS.WIND.SAFE_MAX) {
+    return 0; // Too strong, may be unsafe
+  }
+  return SCORING_CONSTANTS.WIND.MODERATE_SCORE; // Fallback to mid score
 }
 
 /**
@@ -106,9 +187,9 @@ export function humidityScore(humidity: number): number {
   // Type and value validation: 0–100%
   z.number().min(0).max(100).parse(humidity);
 
-  const diff = Math.abs(humidity - 50);
-  const score = 10 - diff / 5;
-  return Math.max(0, Math.min(10, Math.round(score)));
+  const diff = Math.abs(humidity - SCORING_CONSTANTS.HUMIDITY.IDEAL);
+  const score = SCORING_CONSTANTS.HUMIDITY.MAX_SCORE - diff / SCORING_CONSTANTS.HUMIDITY.DEVIATION_DIVISOR;
+  return Math.max(0, Math.min(SCORING_CONSTANTS.HUMIDITY.MAX_SCORE, Math.round(score)));
 }
 
 /**
@@ -120,12 +201,18 @@ export function humidityScore(humidity: number): number {
  */
 export function visibilityScore(visibility: number): number {
   // Type and value validation: 0–100km
-  z.number().min(0).max(100).parse(visibility);
+  z.number().min(0).max(SCORING_CONSTANTS.VISIBILITY.MAX_KM).parse(visibility);
 
-  if (visibility >= 15) return 5; // Panoramic view, best for touring
-  if (visibility >= 10) return 4; // Good, but not perfect
-  if (visibility >= 6) return 2; // Average, but still manageable
-  return 0; // Poor visibility, not recommended
+  if (visibility >= SCORING_CONSTANTS.VISIBILITY.EXCELLENT) {
+    return SCORING_CONSTANTS.VISIBILITY.SCORE_EXCELLENT; // Panoramic view, best for touring
+  }
+  if (visibility >= SCORING_CONSTANTS.VISIBILITY.GOOD) {
+    return SCORING_CONSTANTS.VISIBILITY.SCORE_GOOD; // Good, but not perfect
+  }
+  if (visibility >= SCORING_CONSTANTS.VISIBILITY.MODERATE) {
+    return SCORING_CONSTANTS.VISIBILITY.SCORE_MODERATE; // Average, but still manageable
+  }
+  return SCORING_CONSTANTS.VISIBILITY.SCORE_POOR; // Poor visibility, not recommended
 }
 
 /**
@@ -138,8 +225,8 @@ export function precipitationProbabilityScore(prob: number): number {
   // Type and value validation: 0–100%
   z.number().min(0).max(100).parse(prob);
 
-  const score = 10 - prob / 10;
-  return Math.max(0, Math.min(10, Math.round(score)));
+  const score = SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE - prob / SCORING_CONSTANTS.PRECIPITATION_PROB.DIVISOR;
+  return Math.max(0, Math.min(SCORING_CONSTANTS.PRECIPITATION_PROB.MAX_SCORE, Math.round(score)));
 }
 
 /**
@@ -150,11 +237,15 @@ export function precipitationProbabilityScore(prob: number): number {
  */
 export function uvIndexScore(uv: number): number {
   // Type and value validation: 0–20
-  z.number().min(0).max(20).parse(uv);
+  z.number().min(0).max(SCORING_CONSTANTS.UV.MAX_INDEX).parse(uv);
 
-  if (uv <= 4) return 5; // Low UV, no concern
-  if (uv <= 6) return 3; // Moderate UV, some caution needed
-  return 0; // High UV, uncomfortable or risky
+  if (uv <= SCORING_CONSTANTS.UV.SAFE_THRESHOLD) {
+    return SCORING_CONSTANTS.UV.SCORE_SAFE; // Low UV, no concern
+  }
+  if (uv <= SCORING_CONSTANTS.UV.MODERATE_THRESHOLD) {
+    return SCORING_CONSTANTS.UV.SCORE_MODERATE; // Moderate UV, some caution needed
+  }
+  return SCORING_CONSTANTS.UV.SCORE_HIGH; // High UV, uncomfortable or risky
 }
 
 /**
@@ -170,7 +261,11 @@ export function airQualityScore(level: AirQualityLevel | undefined): number {
     AirQualityLevelSchema.parse(level);
   }
 
-  if (level === "low" || !level) return 5; // No pollen/smog, perfect
-  if (level === "medium") return 3; // Some discomfort
-  return 0; // Bad air, not recommended for outdoor activity
+  if (level === "low" || !level) {
+    return SCORING_CONSTANTS.AIR_QUALITY.SCORE_LOW; // No pollen/smog, perfect
+  }
+  if (level === "medium") {
+    return SCORING_CONSTANTS.AIR_QUALITY.SCORE_MEDIUM; // Some discomfort
+  }
+  return SCORING_CONSTANTS.AIR_QUALITY.SCORE_HIGH; // Bad air, not recommended for outdoor activity
 }

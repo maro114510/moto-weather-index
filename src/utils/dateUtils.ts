@@ -1,3 +1,11 @@
+// Date validation constants
+const DATE_CONSTANTS = {
+  FORMAT_REGEX: /^\d{4}-\d{2}-\d{2}$/,
+  MAX_FUTURE_DAYS: 16,
+  MAX_LOOKBACK_DAYS: 7,
+  MAX_DATE_RANGE_DAYS: 30,
+} as const;
+
 /**
  * Validate that a date string is in YYYY-MM-DD format and represents a valid date
  * @param dateString Date string to validate
@@ -6,7 +14,7 @@
  */
 function validateDateFormat(dateString: string, fieldName: string): void {
   // Check format: YYYY-MM-DD (exactly 10 characters)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+  if (!DATE_CONSTANTS.FORMAT_REGEX.test(dateString)) {
     throw new Error(`${fieldName} must be in YYYY-MM-DD format`);
   }
 
@@ -46,22 +54,22 @@ export function validateDateRange(startDate: string, endDate: string): void {
     throw new Error("startDate must be before endDate");
   }
 
-  // Don't allow future dates beyond 16 days from today
+  // Don't allow future dates beyond configured limit
   const maxFutureDate = new Date();
-  maxFutureDate.setDate(maxFutureDate.getDate() + 16);
+  maxFutureDate.setDate(maxFutureDate.getDate() + DATE_CONSTANTS.MAX_FUTURE_DAYS);
 
   if (end > maxFutureDate) {
-    throw new Error("endDate cannot be more than 16 days in the future");
+    throw new Error(`endDate cannot be more than ${DATE_CONSTANTS.MAX_FUTURE_DAYS} days in the future`);
   }
 
-  // Limit to maximum 30 days for performance
+  // Limit to maximum configured days for performance
   // Calculate the number of days in the range (inclusive of both dates)
   // For example: 2025-06-01 to 2025-07-01 = 30 days (June has 30 days)
   const daysDiff = Math.floor(
     (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
   );
-  if (daysDiff > 30) {
-    throw new Error("Date range cannot exceed 30 days");
+  if (daysDiff > DATE_CONSTANTS.MAX_DATE_RANGE_DAYS) {
+    throw new Error(`Date range cannot exceed ${DATE_CONSTANTS.MAX_DATE_RANGE_DAYS} days`);
   }
 
   // Note: We allow queries for old dates even if no data exists
@@ -84,21 +92,21 @@ export function validateBatchStartDate(startDate: string): void {
   start.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
 
-  // Check if start date is within the last 7 days (including today)
+  // Check if start date is within the configured lookback period (including today)
   const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 7);
+  weekAgo.setDate(today.getDate() - DATE_CONSTANTS.MAX_LOOKBACK_DAYS);
 
   if (start < weekAgo) {
-    throw new Error("Batch start date must be within the last 7 days");
+    throw new Error(`Batch start date must be within the last ${DATE_CONSTANTS.MAX_LOOKBACK_DAYS} days`);
   }
 
-  // Don't allow future dates beyond 16 days from today
+  // Don't allow future dates beyond configured limit
   const maxFutureDate = new Date(today);
-  maxFutureDate.setDate(today.getDate() + 16);
+  maxFutureDate.setDate(today.getDate() + DATE_CONSTANTS.MAX_FUTURE_DAYS);
 
   if (start > maxFutureDate) {
     throw new Error(
-      "Batch start date cannot be more than 16 days in the future",
+      `Batch start date cannot be more than ${DATE_CONSTANTS.MAX_FUTURE_DAYS} days in the future`,
     );
   }
 }
