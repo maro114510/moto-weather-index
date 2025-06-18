@@ -4,6 +4,16 @@ import type { Weather, WeatherCondition } from "../domain/Weather";
 import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
 
+// Common API parameter structure for Open-Meteo
+interface OpenMeteoParams {
+  latitude: number;
+  longitude: number;
+  daily: string;
+  start_date: string;
+  end_date: string;
+  timezone: string;
+}
+
 // Open-Meteo weather code
 // doc: https://github.com/open-meteo/open-meteo/issues/287
 function mapWeatherCode(code: number): WeatherCondition {
@@ -23,6 +33,17 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
   private readonly cacheExpirationSeconds =
     APP_CONFIG.CACHE_EXPIRATION_HOURS * 60 * 60;
 
+  // Common daily parameters for weather requests
+  private readonly dailyParams = [
+    "weathercode",
+    "temperature_2m_max",
+    "temperature_2m_min",
+    "windspeed_10m_max",
+    "relative_humidity_2m_max",
+    "precipitation_probability_max",
+    "uv_index_max",
+  ].join(",");
+
   constructor(kv?: KVNamespace) {
     this.kv = kv;
     logger.info("OpenMeteoWeatherRepository initialized", {
@@ -30,6 +51,25 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
       cacheEnabled: !!kv,
       cacheExpirationHours: APP_CONFIG.CACHE_EXPIRATION_HOURS,
     });
+  }
+
+  /**
+   * Create common API parameters for Open-Meteo requests
+   */
+  private createApiParams(
+    lat: number,
+    lon: number,
+    startDate: string,
+    endDate: string,
+  ): OpenMeteoParams {
+    return {
+      latitude: lat,
+      longitude: lon,
+      daily: this.dailyParams,
+      start_date: startDate,
+      end_date: endDate,
+      timezone: APP_CONFIG.DEFAULT_TIMEZONE,
+    };
   }
 
   private generateCacheKey(lat: number, lon: number, datetime: string): string {
@@ -136,23 +176,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
 
     try {
       const date = datetime.slice(0, 10);
-
-      const params = {
-        latitude: lat,
-        longitude: lon,
-        daily: [
-          "weathercode",
-          "temperature_2m_max",
-          "temperature_2m_min",
-          "windspeed_10m_max",
-          "relative_humidity_2m_max",
-          "precipitation_probability_max",
-          "uv_index_max",
-        ].join(","),
-        start_date: date,
-        end_date: date,
-        timezone: APP_CONFIG.DEFAULT_TIMEZONE,
-      };
+      const params = this.createApiParams(lat, lon, date, date);
 
       const url = getOpenMeteoForecastUrl();
       logger.externalApiCall("OpenMeteo", url, {
@@ -282,22 +306,7 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
     logger.debug("Starting batch weather data retrieval", context);
 
     try {
-      const params = {
-        latitude: lat,
-        longitude: lon,
-        daily: [
-          "weathercode",
-          "temperature_2m_max",
-          "temperature_2m_min",
-          "windspeed_10m_max",
-          "relative_humidity_2m_max",
-          "precipitation_probability_max",
-          "uv_index_max",
-        ].join(","),
-        start_date: startDate,
-        end_date: endDate,
-        timezone: APP_CONFIG.DEFAULT_TIMEZONE,
-      };
+      const params = this.createApiParams(lat, lon, startDate, endDate);
 
       const url = getOpenMeteoForecastUrl();
       logger.externalApiCall("OpenMeteo", url, {
