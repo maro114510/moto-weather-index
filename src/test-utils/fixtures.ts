@@ -1,12 +1,17 @@
 // src/test-utils/fixtures.ts
 
-import type { Weather, WeatherCondition, AirQualityLevel } from "../domain/Weather";
+import type {
+  AirQualityLevel,
+  Weather,
+  WeatherCondition,
+} from "../domain/Weather";
 import type { Prefecture } from "../types/prefecture";
 import type { TouringIndexBatchItem } from "../usecase/BatchCalculateTouringIndex";
 
 /**
  * Test fixture factory for Weather objects
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class WeatherFixture {
   /**
    * Create a perfect touring weather scenario
@@ -83,7 +88,9 @@ export class WeatherFixture {
   /**
    * Create weather for precipitation probability testing
    */
-  static withPrecipitationProbability(precipitationProbability: number): Weather {
+  static withPrecipitationProbability(
+    precipitationProbability: number,
+  ): Weather {
     return WeatherFixture.create({ precipitationProbability });
   }
 
@@ -112,6 +119,7 @@ export class WeatherFixture {
 /**
  * Test fixture factory for Prefecture objects
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class PrefectureFixture {
   /**
    * Create Tokyo prefecture data
@@ -148,7 +156,7 @@ export class PrefectureFixture {
       name_ja: "神奈川県",
       name_en: "Kanagawa",
       latitude: 35.4437,
-      longitude: 139.6380,
+      longitude: 139.638,
     };
   }
 
@@ -177,11 +185,14 @@ export class PrefectureFixture {
 /**
  * Test fixture factory for TouringIndexBatchItem objects
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class TouringIndexBatchItemFixture {
   /**
    * Create a standard batch item
    */
-  static create(overrides: Partial<TouringIndexBatchItem> = {}): TouringIndexBatchItem {
+  static create(
+    overrides: Partial<TouringIndexBatchItem> = {},
+  ): TouringIndexBatchItem {
     const weather = WeatherFixture.perfect();
     const factors = {
       weather: 30,
@@ -211,7 +222,7 @@ export class TouringIndexBatchItemFixture {
   static createMultiple(
     prefectureId: number,
     startDate: string,
-    days: number
+    days: number,
   ): TouringIndexBatchItem[] {
     const items: TouringIndexBatchItem[] = [];
     const start = new Date(startDate);
@@ -226,7 +237,7 @@ export class TouringIndexBatchItemFixture {
           prefecture_id: prefectureId,
           date: dateString,
           score: Math.floor(Math.random() * 100), // Random score for variety
-        })
+        }),
       );
     }
 
@@ -237,6 +248,7 @@ export class TouringIndexBatchItemFixture {
 /**
  * Date utility fixtures for testing
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class DateFixture {
   /**
    * Get today's date string in YYYY-MM-DD format
@@ -271,7 +283,10 @@ export class DateFixture {
   /**
    * Get date range for testing
    */
-  static range(startDaysFromToday: number, endDaysFromToday: number): {
+  static range(
+    startDaysFromToday: number,
+    endDaysFromToday: number,
+  ): {
     startDate: string;
     endDate: string;
   } {
@@ -295,6 +310,7 @@ export class DateFixture {
 /**
  * API response fixtures for testing
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class ApiResponseFixture {
   /**
    * Create mock touring index history data
@@ -319,7 +335,7 @@ export class ApiResponseFixture {
         WeatherFixture.create({
           datetime: DateFixture.isoDateTime(date),
           temperature: 20 + Math.random() * 5, // Random temp 20-25
-        })
+        }),
       ),
       calculated_at: DateFixture.isoDateTime(date),
     }));
@@ -328,7 +344,7 @@ export class ApiResponseFixture {
   /**
    * Create mock error response
    */
-  static error(message: string, statusCode: number = 400) {
+  static error(message: string, _statusCode = 400) {
     return {
       error: message,
       requestId: "test-request-id",
@@ -350,11 +366,14 @@ export class ApiResponseFixture {
 /**
  * Performance testing utilities
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class PerformanceFixture {
   /**
    * Measure execution time of a function
    */
-  static async measureTime<T>(fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
+  static async measureTime<T>(
+    fn: () => Promise<T>,
+  ): Promise<{ result: T; duration: number }> {
     const start = Date.now();
     const result = await fn();
     const duration = Date.now() - start;
@@ -366,7 +385,7 @@ export class PerformanceFixture {
    */
   static async measureAverageTime<T>(
     fn: () => Promise<T>,
-    iterations: number = 10
+    iterations = 10,
   ): Promise<{ averageDuration: number; results: T[] }> {
     const results: T[] = [];
     let totalDuration = 0;

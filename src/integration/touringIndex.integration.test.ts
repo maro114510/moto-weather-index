@@ -1,41 +1,41 @@
 // src/integration/touringIndex.integration.test.ts
 
-import { describe, test, expect, beforeEach, mock } from "bun:test";
-import { calculateTouringIndex } from "../usecase/CalculateTouringIndex";
-import { BatchCalculateTouringIndexUsecase } from "../usecase/BatchCalculateTouringIndex";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { getTouringIndexHistory } from "../interface/handlers/touringIndexHandler";
 import {
-  WeatherFixture,
-  PrefectureFixture,
   DateFixture,
+  PrefectureFixture,
   TouringIndexBatchItemFixture,
+  WeatherFixture,
 } from "../test-utils/fixtures";
 import {
-  RepositoryMockFactory,
-  MockScenarioFactory,
   ContextMockFactory,
+  MockScenarioFactory,
+  RepositoryMockFactory,
   ResponseAssertions,
 } from "../test-utils/mocks";
 import {
-  PerformanceTester,
-  MemoryTester,
   LoadTester,
+  MemoryTester,
   PERFORMANCE_THRESHOLDS,
+  PerformanceTester,
 } from "../test-utils/performance";
-import { getTouringIndexHistory } from "../interface/handlers/touringIndexHandler";
+import { BatchCalculateTouringIndexUsecase } from "../usecase/BatchCalculateTouringIndex";
+import { calculateTouringIndex } from "../usecase/CalculateTouringIndex";
 
 describe("Touring Index Integration Tests", () => {
   describe("End-to-End Weather Processing", () => {
     test("should process weather data through complete calculation pipeline", async () => {
       // Test the complete flow from weather input to touring score
       const weather = WeatherFixture.perfect();
-      
+
       const result = await PerformanceTester.measureAsync(async () => {
         return calculateTouringIndex(weather);
       });
 
       // Verify the calculation is fast
       expect(result.duration).toBeLessThan(PERFORMANCE_THRESHOLDS.FAST);
-      
+
       // Verify the result structure
       expect(result.result.score).toBe(100);
       expect(result.result.breakdown).toEqual({
@@ -60,13 +60,15 @@ describe("Touring Index Integration Tests", () => {
       ];
 
       const results = await Promise.all(
-        weatherConditions.map(weather => 
-          PerformanceTester.measureAsync(async () => calculateTouringIndex(weather))
-        )
+        weatherConditions.map((weather) =>
+          PerformanceTester.measureAsync(async () =>
+            calculateTouringIndex(weather),
+          ),
+        ),
       );
 
       // All calculations should be fast
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.duration).toBeLessThan(PERFORMANCE_THRESHOLDS.FAST);
         expect(result.result.score).toBeGreaterThanOrEqual(0);
         expect(result.result.score).toBeLessThanOrEqual(100);
@@ -86,7 +88,10 @@ describe("Touring Index Integration Tests", () => {
     beforeEach(() => {
       weatherRepo = RepositoryMockFactory.weather();
       touringIndexRepo = RepositoryMockFactory.touringIndex();
-      batchUsecase = new BatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
+      batchUsecase = new BatchCalculateTouringIndexUsecase(
+        weatherRepo,
+        touringIndexRepo,
+      );
     });
 
     test("should process batch data efficiently", async () => {
@@ -98,7 +103,11 @@ describe("Touring Index Integration Tests", () => {
         DateFixture.daysFromToday(2),
       ];
 
-      MockScenarioFactory.successfulBatchProcessing(weatherRepo, touringIndexRepo, prefectures);
+      MockScenarioFactory.successfulBatchProcessing(
+        weatherRepo,
+        touringIndexRepo,
+        prefectures,
+      );
 
       // Measure batch processing performance
       const result = await PerformanceTester.measureAsync(async () => {
@@ -107,10 +116,14 @@ describe("Touring Index Integration Tests", () => {
 
       // Verify performance is reasonable for batch operation
       expect(result.duration).toBeLessThan(PERFORMANCE_THRESHOLDS.SLOW);
-      
+
       // Verify all data was processed
-      expect(result.result.total_processed).toBe(prefectures.length * targetDates.length);
-      expect(result.result.successful_inserts).toBe(result.result.total_processed);
+      expect(result.result.total_processed).toBe(
+        prefectures.length * targetDates.length,
+      );
+      expect(result.result.successful_inserts).toBe(
+        result.result.total_processed,
+      );
       expect(result.result.failed_inserts).toBe(0);
     });
 
@@ -118,18 +131,24 @@ describe("Touring Index Integration Tests", () => {
       const prefectures = PrefectureFixture.list();
       const targetDates = [DateFixture.today()];
 
-      MockScenarioFactory.successfulBatchProcessing(weatherRepo, touringIndexRepo, prefectures);
+      MockScenarioFactory.successfulBatchProcessing(
+        weatherRepo,
+        touringIndexRepo,
+        prefectures,
+      );
 
       // Run load test
       const loadResult = await LoadTester.loadTest(
         async () => batchUsecase.execute(targetDates, 1),
         3, // concurrency
-        10 // total requests
+        10, // total requests
       );
 
       // Verify load test results
       expect(loadResult.successRate).toBeGreaterThanOrEqual(0.9);
-      expect(loadResult.averageDuration).toBeLessThan(PERFORMANCE_THRESHOLDS.SLOW);
+      expect(loadResult.averageDuration).toBeLessThan(
+        PERFORMANCE_THRESHOLDS.SLOW,
+      );
       expect(loadResult.errors.length).toBeLessThan(2);
     });
 
@@ -147,7 +166,9 @@ describe("Touring Index Integration Tests", () => {
       const result = await batchUsecase.execute(targetDates, 1);
 
       // Verify partial success handling
-      expect(result.total_processed).toBe(prefectures.length * targetDates.length);
+      expect(result.total_processed).toBe(
+        prefectures.length * targetDates.length,
+      );
       expect(result.successful_inserts).toBeGreaterThan(0);
       expect(result.failed_inserts).toBeGreaterThan(0);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -173,8 +194,15 @@ describe("Touring Index Integration Tests", () => {
         DateFixture.daysFromToday(-1),
       ];
 
-      MockScenarioFactory.successfulPrefectureLookup(touringIndexRepo, prefectures);
-      MockScenarioFactory.successfulHistoryData(touringIndexRepo, 13, historyDates);
+      MockScenarioFactory.successfulPrefectureLookup(
+        touringIndexRepo,
+        prefectures,
+      );
+      MockScenarioFactory.successfulHistoryData(
+        touringIndexRepo,
+        13,
+        historyDates,
+      );
 
       // Create context with valid query parameters
       const context = ContextMockFactory.withQuery({
@@ -219,7 +247,11 @@ describe("Touring Index Integration Tests", () => {
 
       // Verify response structure
       ResponseAssertions.assertSuccess(context);
-      ResponseAssertions.assertHasFields(context, ["location", "prefecture_id", "data"]);
+      ResponseAssertions.assertHasFields(context, [
+        "location",
+        "prefecture_id",
+        "data",
+      ]);
       expect(result.result.data.data).toHaveLength(historyDates.length);
     });
 
@@ -238,13 +270,13 @@ describe("Touring Index Integration Tests", () => {
           try {
             await getTouringIndexHistory(context);
             return context._testResponse;
-          } catch (error) {
+          } catch (_error) {
             // API should handle errors gracefully, not throw
             throw new Error("API handler threw unexpected error");
           }
         },
         2, // concurrency
-        8  // total requests
+        8, // total requests
       );
 
       // Verify all requests completed (even if with errors)
@@ -257,15 +289,21 @@ describe("Touring Index Integration Tests", () => {
     test("should not leak memory during batch operations", async () => {
       const weatherRepo = RepositoryMockFactory.weather();
       const touringIndexRepo = RepositoryMockFactory.touringIndex();
-      const batchUsecase = new BatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
+      const batchUsecase = new BatchCalculateTouringIndexUsecase(
+        weatherRepo,
+        touringIndexRepo,
+      );
 
-      MockScenarioFactory.successfulBatchProcessing(weatherRepo, touringIndexRepo);
+      MockScenarioFactory.successfulBatchProcessing(
+        weatherRepo,
+        touringIndexRepo,
+      );
 
       // Test memory usage during repeated operations
       const memoryResult = await MemoryTester.measureMemory(async () => {
-        const promises = Array(5).fill(null).map(() => 
-          batchUsecase.execute([DateFixture.today()], 1)
-        );
+        const promises = Array(5)
+          .fill(null)
+          .map(() => batchUsecase.execute([DateFixture.today()], 1));
         return Promise.all(promises);
       });
 
@@ -278,22 +316,30 @@ describe("Touring Index Integration Tests", () => {
 
     test("should handle large dataset processing efficiently", async () => {
       // Test with larger dataset
-      const largePrefectureList = Array(20).fill(null).map((_, index) => 
-        PrefectureFixture.create({ id: index + 1, name_en: `Prefecture${index + 1}` })
-      );
-      
-      const largeDateRange = Array(10).fill(null).map((_, index) => 
-        DateFixture.daysFromToday(index)
-      );
+      const largePrefectureList = Array(20)
+        .fill(null)
+        .map((_, index) =>
+          PrefectureFixture.create({
+            id: index + 1,
+            name_en: `Prefecture${index + 1}`,
+          }),
+        );
+
+      const largeDateRange = Array(10)
+        .fill(null)
+        .map((_, index) => DateFixture.daysFromToday(index));
 
       const weatherRepo = RepositoryMockFactory.weather();
       const touringIndexRepo = RepositoryMockFactory.touringIndex();
-      const batchUsecase = new BatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
+      const batchUsecase = new BatchCalculateTouringIndexUsecase(
+        weatherRepo,
+        touringIndexRepo,
+      );
 
       MockScenarioFactory.successfulBatchProcessing(
-        weatherRepo, 
-        touringIndexRepo, 
-        largePrefectureList
+        weatherRepo,
+        touringIndexRepo,
+        largePrefectureList,
       );
 
       // Measure performance with large dataset
@@ -303,7 +349,9 @@ describe("Touring Index Integration Tests", () => {
 
       // Should still complete in reasonable time even with large dataset
       expect(result.duration).toBeLessThan(PERFORMANCE_THRESHOLDS.VERY_SLOW);
-      expect(result.result.total_processed).toBe(largePrefectureList.length * largeDateRange.length);
+      expect(result.result.total_processed).toBe(
+        largePrefectureList.length * largeDateRange.length,
+      );
     });
   });
 
@@ -317,12 +365,14 @@ describe("Touring Index Integration Tests", () => {
       });
 
       const results = await Promise.all(
-        Array(10).fill(null).map(() => calculateTouringIndex(weather))
+        Array(10)
+          .fill(null)
+          .map(() => calculateTouringIndex(weather)),
       );
 
       // All results should be identical
       const firstResult = results[0];
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.score).toBe(firstResult.score);
         expect(result.breakdown).toEqual(firstResult.breakdown);
       });
@@ -331,7 +381,10 @@ describe("Touring Index Integration Tests", () => {
     test("should produce deterministic batch results", async () => {
       const weatherRepo = RepositoryMockFactory.weather();
       const touringIndexRepo = RepositoryMockFactory.touringIndex();
-      const batchUsecase = new BatchCalculateTouringIndexUsecase(weatherRepo, touringIndexRepo);
+      const batchUsecase = new BatchCalculateTouringIndexUsecase(
+        weatherRepo,
+        touringIndexRepo,
+      );
 
       const prefectures = PrefectureFixture.list();
       const targetDates = [DateFixture.today()];
@@ -344,12 +397,14 @@ describe("Touring Index Integration Tests", () => {
 
       // Run batch processing multiple times
       const results = await Promise.all(
-        Array(3).fill(null).map(() => batchUsecase.execute(targetDates, 1))
+        Array(3)
+          .fill(null)
+          .map(() => batchUsecase.execute(targetDates, 1)),
       );
 
       // All batch results should be identical
       const firstResult = results[0];
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.total_processed).toBe(firstResult.total_processed);
         expect(result.successful_inserts).toBe(firstResult.successful_inserts);
         expect(result.failed_inserts).toBe(firstResult.failed_inserts);

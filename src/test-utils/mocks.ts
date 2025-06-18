@@ -6,11 +6,12 @@ import { ZodError } from "zod";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import type { Prefecture } from "../types/prefecture";
 import type { TouringIndexBatchItem } from "../usecase/BatchCalculateTouringIndex";
-import { PrefectureFixture, ApiResponseFixture } from "./fixtures";
+import { ApiResponseFixture, PrefectureFixture } from "./fixtures";
 
 /**
  * Mock factory for Hono Context objects
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class ContextMockFactory {
   /**
    * Create a basic mock context with common properties
@@ -34,8 +35,12 @@ export class ContextMockFactory {
         return {} as any;
       }) as any,
       env: {
-        DB: { /* mock D1 database */ },
-        OPEN_METEO_CACHE: { /* mock KV store */ },
+        DB: {
+          /* mock D1 database */
+        },
+        OPEN_METEO_CACHE: {
+          /* mock KV store */
+        },
       } as any,
       // Add captured response for test verification
       _testResponse: capturedResponse,
@@ -74,7 +79,7 @@ export class ContextMockFactory {
   /**
    * Create context with request context data
    */
-  static withRequestContext(requestId: string = "test-request-id"): Context {
+  static withRequestContext(requestId = "test-request-id"): Context {
     return ContextMockFactory.create({
       get: mock((key: string) => {
         if (key === "requestContext") {
@@ -94,6 +99,7 @@ export class ContextMockFactory {
 /**
  * Mock factory for repository objects
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class RepositoryMockFactory {
   /**
    * Create a mock touring index repository
@@ -147,6 +153,7 @@ export class RepositoryMockFactory {
 /**
  * Mock factory for external API responses
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class ExternalApiMockFactory {
   /**
    * Create mock Open-Meteo API response
@@ -172,7 +179,7 @@ export class ExternalApiMockFactory {
   /**
    * Create mock axios error
    */
-  static axiosError(statusCode: number = 500, message: string = "API Error") {
+  static axiosError(statusCode = 500, message = "API Error") {
     const error = new Error(message);
     (error as any).response = {
       status: statusCode,
@@ -186,6 +193,7 @@ export class ExternalApiMockFactory {
 /**
  * Mock factory for validation errors
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class ValidationMockFactory {
   /**
    * Create a Zod validation error
@@ -203,13 +211,15 @@ export class ValidationMockFactory {
   /**
    * Create multiple field validation errors
    */
-  static multipleFieldErrors(errors: Array<{ field: string; message: string }>): ZodError {
+  static multipleFieldErrors(
+    errors: Array<{ field: string; message: string }>,
+  ): ZodError {
     return new ZodError(
       errors.map(({ field, message }) => ({
         code: "custom" as const,
         path: [field],
         message,
-      }))
+      })),
     );
   }
 
@@ -230,21 +240,25 @@ export class ValidationMockFactory {
   /**
    * Create date validation error
    */
-  static dateError(field: string = "startDate"): ZodError {
-    return ValidationMockFactory.zodError(field, `${field} must be in YYYY-MM-DD format`);
+  static dateError(field = "startDate"): ZodError {
+    return ValidationMockFactory.zodError(
+      field,
+      `${field} must be in YYYY-MM-DD format`,
+    );
   }
 }
 
 /**
  * Helper for setting up common mock scenarios
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class MockScenarioFactory {
   /**
    * Set up successful prefecture lookup scenario
    */
   static successfulPrefectureLookup(
     touringIndexRepo: any,
-    prefectures: Prefecture[] = PrefectureFixture.list()
+    prefectures: Prefecture[] = PrefectureFixture.list(),
   ) {
     touringIndexRepo.getAllPrefectures.mockResolvedValue(prefectures);
     return prefectures[0]; // Return first prefecture as the "nearest"
@@ -255,11 +269,16 @@ export class MockScenarioFactory {
    */
   static successfulHistoryData(
     touringIndexRepo: any,
-    prefectureId: number = 13,
-    dates: string[] = ["2025-06-01", "2025-06-02"]
+    prefectureId = 13,
+    dates: string[] = ["2025-06-01", "2025-06-02"],
   ) {
-    const historyData = ApiResponseFixture.touringIndexHistory(prefectureId, dates);
-    touringIndexRepo.getTouringIndexByPrefectureAndDateRange.mockResolvedValue(historyData);
+    const historyData = ApiResponseFixture.touringIndexHistory(
+      prefectureId,
+      dates,
+    );
+    touringIndexRepo.getTouringIndexByPrefectureAndDateRange.mockResolvedValue(
+      historyData,
+    );
     return historyData;
   }
 
@@ -269,7 +288,7 @@ export class MockScenarioFactory {
   static successfulBatchProcessing(
     weatherRepo: any,
     touringIndexRepo: any,
-    prefectures: Prefecture[] = PrefectureFixture.list()
+    prefectures: Prefecture[] = PrefectureFixture.list(),
   ) {
     // Mock weather repository
     weatherRepo.getWeatherBatch.mockResolvedValue([
@@ -286,7 +305,7 @@ export class MockScenarioFactory {
   /**
    * Set up database error scenario
    */
-  static databaseError(repo: any, method: string = "getAllPrefectures") {
+  static databaseError(repo: any, method = "getAllPrefectures") {
     repo[method].mockRejectedValue(new Error("Database connection failed"));
   }
 
@@ -314,6 +333,7 @@ export class MockScenarioFactory {
 /**
  * Response assertion helpers
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Test utilities pattern
 export class ResponseAssertions {
   /**
    * Assert successful response
@@ -330,7 +350,7 @@ export class ResponseAssertions {
   static assertError(
     context: any,
     expectedStatus: number,
-    expectedErrorMessage?: string
+    expectedErrorMessage?: string,
   ) {
     const response = context._testResponse;
     expect(response.status).toBe(expectedStatus);
@@ -365,7 +385,7 @@ export class ResponseAssertions {
    */
   static assertHasFields(context: any, fields: string[]) {
     const response = context._testResponse;
-    fields.forEach(field => {
+    fields.forEach((field) => {
       expect(response.data[field]).toBeDefined();
     });
   }
@@ -375,7 +395,7 @@ export class ResponseAssertions {
    */
   static assertStructure(context: any, expectedStructure: any) {
     const response = context._testResponse;
-    Object.keys(expectedStructure).forEach(key => {
+    Object.keys(expectedStructure).forEach((key) => {
       expect(response.data[key]).toEqual(expectedStructure[key]);
     });
   }

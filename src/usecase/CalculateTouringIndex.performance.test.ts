@@ -1,33 +1,33 @@
 // src/usecase/CalculateTouringIndex.performance.test.ts
 
-import { describe, test, expect } from "bun:test";
-import { calculateTouringIndex } from "./CalculateTouringIndex";
+import { describe, expect, test } from "bun:test";
 import { WeatherFixture } from "../test-utils/fixtures";
 import {
-  PerformanceTester,
-  MemoryTester,
   LoadTester,
-  PerformanceTestSuite,
+  MemoryTester,
   PERFORMANCE_THRESHOLDS,
+  PerformanceTestSuite,
+  PerformanceTester,
 } from "../test-utils/performance";
+import { calculateTouringIndex } from "./CalculateTouringIndex";
 
 describe("CalculateTouringIndex Performance Tests", () => {
   describe("Single Calculation Performance", () => {
     test("should calculate touring index very quickly", async () => {
       const weather = WeatherFixture.perfect();
-      
+
       await PerformanceTester.assertFast(
         async () => calculateTouringIndex(weather),
-        "Perfect weather calculation"
+        "Perfect weather calculation",
       );
     });
 
     test("should handle worst case scenario efficiently", async () => {
       const weather = WeatherFixture.worst();
-      
+
       await PerformanceTester.assertFast(
         async () => calculateTouringIndex(weather),
-        "Worst weather calculation"
+        "Worst weather calculation",
       );
     });
 
@@ -47,20 +47,23 @@ describe("CalculateTouringIndex Performance Tests", () => {
       const durations: number[] = [];
 
       for (const weather of weatherConditions) {
-        const { duration } = await PerformanceTester.measureAsync(
-          async () => calculateTouringIndex(weather)
+        const { duration } = await PerformanceTester.measureAsync(async () =>
+          calculateTouringIndex(weather),
         );
         durations.push(duration);
       }
 
       // All calculations should be very fast
-      durations.forEach(duration => {
+      durations.forEach((duration) => {
         expect(duration).toBeLessThan(PERFORMANCE_THRESHOLDS.VERY_FAST);
       });
 
       // Performance should be consistent (low variance)
-      const average = durations.reduce((sum, d) => sum + d, 0) / durations.length;
-      const variance = durations.reduce((sum, d) => sum + Math.pow(d - average, 2), 0) / durations.length;
+      const average =
+        durations.reduce((sum, d) => sum + d, 0) / durations.length;
+      const variance =
+        durations.reduce((sum, d) => sum + (d - average) ** 2, 0) /
+        durations.length;
       const standardDeviation = Math.sqrt(variance);
 
       // Standard deviation should be reasonable relative to average
@@ -71,16 +74,18 @@ describe("CalculateTouringIndex Performance Tests", () => {
 
   describe("Bulk Processing Performance", () => {
     test("should handle bulk calculations efficiently", async () => {
-      const weatherList = Array(100).fill(null).map((_, index) => 
-        WeatherFixture.create({
-          temperature: 15 + (index % 20), // Vary temperature 15-35
-          windSpeed: index % 10, // Vary wind speed 0-9
-          humidity: 40 + (index % 40), // Vary humidity 40-80
-        })
-      );
+      const weatherList = Array(100)
+        .fill(null)
+        .map((_, index) =>
+          WeatherFixture.create({
+            temperature: 15 + (index % 20), // Vary temperature 15-35
+            windSpeed: index % 10, // Vary wind speed 0-9
+            humidity: 40 + (index % 40), // Vary humidity 40-80
+          }),
+        );
 
       const result = await PerformanceTester.measureAsync(async () => {
-        return weatherList.map(weather => calculateTouringIndex(weather));
+        return weatherList.map((weather) => calculateTouringIndex(weather));
       });
 
       // 100 calculations should complete quickly
@@ -88,7 +93,7 @@ describe("CalculateTouringIndex Performance Tests", () => {
       expect(result.result).toHaveLength(100);
 
       // All results should be valid
-      result.result.forEach(touringIndex => {
+      result.result.forEach((touringIndex) => {
         expect(touringIndex.score).toBeGreaterThanOrEqual(0);
         expect(touringIndex.score).toBeLessThanOrEqual(100);
         expect(Number.isInteger(touringIndex.score)).toBe(true);
@@ -97,13 +102,19 @@ describe("CalculateTouringIndex Performance Tests", () => {
 
     test("should scale linearly with input size", async () => {
       const sizes = [10, 50, 100, 500];
-      const results: Array<{ size: number; duration: number; throughput: number }> = [];
+      const results: Array<{
+        size: number;
+        duration: number;
+        throughput: number;
+      }> = [];
 
       for (const size of sizes) {
-        const weatherList = Array(size).fill(null).map(() => WeatherFixture.perfect());
-        
+        const weatherList = Array(size)
+          .fill(null)
+          .map(() => WeatherFixture.perfect());
+
         const { duration } = await PerformanceTester.measureAsync(async () => {
-          return weatherList.map(weather => calculateTouringIndex(weather));
+          return weatherList.map((weather) => calculateTouringIndex(weather));
         });
 
         results.push({
@@ -115,10 +126,10 @@ describe("CalculateTouringIndex Performance Tests", () => {
 
       // Performance should scale roughly linearly
       // (throughput should remain relatively constant)
-      const throughputs = results.map(r => r.throughput);
+      const throughputs = results.map((r) => r.throughput);
       const minThroughput = Math.min(...throughputs);
       const maxThroughput = Math.max(...throughputs);
-      
+
       // Throughput variance should be reasonable for very fast operations
       // Allow higher variance due to measurement precision at microsecond level
       expect(maxThroughput / minThroughput).toBeLessThan(10.0);
@@ -133,16 +144,18 @@ describe("CalculateTouringIndex Performance Tests", () => {
       await MemoryTester.assertMemoryUsage(
         async () => {
           // Process a large batch to test memory usage
-          const weatherList = Array(1000).fill(null).map(() => WeatherFixture.perfect());
-          return weatherList.map(weather => calculateTouringIndex(weather));
+          const weatherList = Array(1000)
+            .fill(null)
+            .map(() => WeatherFixture.perfect());
+          return weatherList.map((weather) => calculateTouringIndex(weather));
         },
-        10 // Max 10MB heap usage increase
+        10, // Max 10MB heap usage increase
       );
     });
 
     test("should not leak memory with repeated calculations", async () => {
       const weather = WeatherFixture.perfect();
-      
+
       const memoryResult = await MemoryTester.measureMemory(async () => {
         // Perform many calculations to test for memory leaks
         for (let i = 0; i < 1000; i++) {
@@ -161,43 +174,49 @@ describe("CalculateTouringIndex Performance Tests", () => {
   describe("Load Testing", () => {
     test("should handle concurrent calculations", async () => {
       const weather = WeatherFixture.perfect();
-      
+
       const loadResult = await LoadTester.loadTest(
         async () => calculateTouringIndex(weather),
         10, // 10 concurrent executions
-        100 // 100 total requests
+        100, // 100 total requests
       );
 
       // Should have high success rate
       expect(loadResult.successRate).toBeGreaterThanOrEqual(0.99);
       expect(loadResult.errors.length).toBeLessThan(2);
-      
+
       // Should maintain good performance under load
-      expect(loadResult.averageDuration).toBeLessThan(PERFORMANCE_THRESHOLDS.FAST);
-      
+      expect(loadResult.averageDuration).toBeLessThan(
+        PERFORMANCE_THRESHOLDS.FAST,
+      );
+
       // Should process requests quickly
       expect(loadResult.requestsPerSecond).toBeGreaterThan(100);
     });
 
     test("should maintain performance under stress", async () => {
       const weather = WeatherFixture.perfect();
-      
+
       const stressResults = await LoadTester.stressTest(
         async () => calculateTouringIndex(weather),
-        1,  // start with 1 concurrent
+        1, // start with 1 concurrent
         20, // up to 20 concurrent
-        10  // 10 requests per level
+        10, // 10 requests per level
       );
 
       // Performance should degrade gracefully
-      let previousRequestsPerSecond = Infinity;
-      stressResults.forEach(result => {
+      let previousRequestsPerSecond = Number.POSITIVE_INFINITY;
+      stressResults.forEach((result) => {
         expect(result.successRate).toBeGreaterThanOrEqual(0.95);
-        expect(result.averageDuration).toBeLessThan(PERFORMANCE_THRESHOLDS.NORMAL);
-        
+        expect(result.averageDuration).toBeLessThan(
+          PERFORMANCE_THRESHOLDS.NORMAL,
+        );
+
         // Requests per second should not drop dramatically
-        if (previousRequestsPerSecond !== Infinity) {
-          expect(result.requestsPerSecond).toBeGreaterThan(previousRequestsPerSecond * 0.5);
+        if (previousRequestsPerSecond !== Number.POSITIVE_INFINITY) {
+          expect(result.requestsPerSecond).toBeGreaterThan(
+            previousRequestsPerSecond * 0.5,
+          );
         }
         previousRequestsPerSecond = result.requestsPerSecond;
       });
@@ -225,7 +244,7 @@ describe("CalculateTouringIndex Performance Tests", () => {
       for (const scenario of scenarios) {
         const profile = await PerformanceTester.profile(
           async () => calculateTouringIndex(scenario.weather),
-          20 // 20 iterations for good statistics
+          20, // 20 iterations for good statistics
         );
 
         profiles.push({
@@ -236,7 +255,7 @@ describe("CalculateTouringIndex Performance Tests", () => {
         });
 
         // All scenarios should be classified as fast or very fast
-        expect(['very_fast', 'fast']).toContain(profile.classification);
+        expect(["very_fast", "fast"]).toContain(profile.classification);
       }
 
       // Log performance profiles for analysis
@@ -249,30 +268,32 @@ describe("CalculateTouringIndex Performance Tests", () => {
       PerformanceTestSuite.createTest(
         "perfect weather calculation",
         async () => calculateTouringIndex(WeatherFixture.perfect()),
-        { maxDuration: PERFORMANCE_THRESHOLDS.VERY_FAST }
+        { maxDuration: PERFORMANCE_THRESHOLDS.VERY_FAST },
       ),
       PerformanceTestSuite.createTest(
-        "worst weather calculation", 
+        "worst weather calculation",
         async () => calculateTouringIndex(WeatherFixture.worst()),
-        { maxDuration: PERFORMANCE_THRESHOLDS.VERY_FAST }
+        { maxDuration: PERFORMANCE_THRESHOLDS.VERY_FAST },
       ),
       PerformanceTestSuite.createTest(
         "bulk calculation (100 items)",
         async () => {
-          const weatherList = Array(100).fill(null).map(() => WeatherFixture.perfect());
-          return weatherList.map(weather => calculateTouringIndex(weather));
+          const weatherList = Array(100)
+            .fill(null)
+            .map(() => WeatherFixture.perfect());
+          return weatherList.map((weather) => calculateTouringIndex(weather));
         },
-        { maxDuration: PERFORMANCE_THRESHOLDS.FAST, maxMemoryMB: 10 }
+        { maxDuration: PERFORMANCE_THRESHOLDS.FAST, maxMemoryMB: 10 },
       ),
       PerformanceTestSuite.createLoadTest(
         "concurrent calculations",
         async () => calculateTouringIndex(WeatherFixture.perfect()),
-        { concurrency: 5, totalRequests: 25, minSuccessRate: 0.99 }
+        { concurrency: 5, totalRequests: 25, minSuccessRate: 0.99 },
       ),
     ];
 
     // Run all performance tests
-    performanceTests.forEach(perfTest => {
+    performanceTests.forEach((perfTest) => {
       test(perfTest.name, perfTest.test);
     });
   });
