@@ -26,22 +26,6 @@ import { z } from "zod";
 import type { AirQualityLevel, WeatherCondition } from "./Weather";
 
 /**
- * Zod schema for weather condition.
- */
-const _WeatherConditionSchema = z.enum([
-  "clear",
-  "mostly_clear",
-  "partly_cloudy",
-  "cloudy",
-  "overcast",
-  "fog",
-  "drizzle",
-  "rain",
-  "snow",
-  "unknown",
-]);
-
-/**
  * Zod schema for air quality level.
  */
 const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);

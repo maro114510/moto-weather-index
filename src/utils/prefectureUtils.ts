@@ -1,10 +1,4 @@
-export interface Prefecture {
-  id: number;
-  name_ja: string;
-  name_en: string;
-  latitude: number;
-  longitude: number;
-}
+import type { Prefecture } from "../types/prefecture";
 
 /**
  * Calculate the distance between two geographic points using the Haversine formula

@@ -1,8 +1,8 @@
 import type {
-  Prefecture,
   TouringIndexBatchItem,
   TouringIndexRepository,
 } from "../usecase/BatchCalculateTouringIndex";
+import type { Prefecture } from "../types/prefecture";
 import { logger } from "../utils/logger";
 
 interface TouringIndexRecord {
