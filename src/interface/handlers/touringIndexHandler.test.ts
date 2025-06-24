@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { Context } from "hono";
-import { ZodError, z } from "zod";
+import { ZodError } from "zod";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import { getTouringIndexHistory } from "./touringIndexHandler";
 

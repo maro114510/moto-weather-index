@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { ZodError } from "zod";
 import {
   type AirQualityLevel,
+  createWeather,
   type Weather,
   type WeatherCondition,
-  createWeather,
 } from "../domain/Weather";
 import { calculateTouringIndex } from "./CalculateTouringIndex";
 

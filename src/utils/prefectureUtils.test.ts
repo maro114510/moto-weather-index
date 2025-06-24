@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-  type Prefecture,
   calculateDistance,
   findNearestPrefecture,
+  type Prefecture,
 } from "./prefectureUtils";
 
 describe("prefectureUtils", () => {
