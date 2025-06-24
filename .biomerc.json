@@ -1,23 +1,13 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.4.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.0.5/schema.json",
   "files": {
-    "ignore": [
-      "*.config.js",
-      "*.config.ts",
-      "*.config.mjs",
-      "*.config.cjs",
-      "wrangler.toml",
-      "tsconfig.json",
-      "package.json",
-      "bun.lockb",
-      ".biomerc.json",
-      "Taskfile.yaml",
-      ".wrangler",
-      ".wrangler/**/*"
-    ]
+    "ignoreUnknown": true
   },
   "linter": {
     "enabled": true,
+    "includes": [
+      "src/**/*"
+    ],
     "rules": {
       "recommended": true,
       "suspicious": {
@@ -27,7 +17,7 @@
         "noUnusedVariables": "warn"
       },
       "style": {
-        "noVar": "warn"
+        "useConst": "warn"
       },
       "complexity": {
         "noForEach": "off"
@@ -36,6 +26,9 @@
   },
   "formatter": {
     "enabled": true,
+    "includes": [
+      "src/**/*"
+    ],
     "indentStyle": "space",
     "indentWidth": 2
   }

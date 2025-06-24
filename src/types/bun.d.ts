@@ -1,7 +1,4 @@
 // src/types/bun.d.ts
-interface ImportMeta {
-  readonly main?: boolean;
-}
 
 declare const Bun: {
   serve(options: {
