@@ -49,4 +49,7 @@ bun.lock
 ### Output ###
 repomix-output.xml
 
+### Serena MCP ###
+.serena/
+
 # End Of Ignore

@@ -1,8 +1,16 @@
 import { serve } from "@hono/node-server";
+import {
+  getValidatedEnvironment,
+  validateEnvironmentOnStartup,
+} from "./config/environmentValidation";
 import { app } from "./interface/router";
 import { logger } from "./utils/logger";
 
-const port = process.env.PORT || 8000;
+// Validate environment variables on startup
+validateEnvironmentOnStartup();
+
+const env = getValidatedEnvironment();
+const port = env.PORT;
 
 serve({
   fetch: app.fetch,

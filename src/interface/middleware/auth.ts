@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import { validateEnvironment } from "../../config/environmentValidation";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 
 /**
@@ -57,8 +58,20 @@ async function verifyHmacSignature(
  * Authentication middleware for batch endpoints
  */
 export async function authMiddleware(c: Context, next: Next) {
+  // Validate environment configuration
+  let env: ReturnType<typeof validateEnvironment>;
+  try {
+    env = validateEnvironment(process.env);
+  } catch (error) {
+    console.error("Environment validation failed in auth middleware:", error);
+    return c.json(
+      { error: "Internal Server Error", message: "Server configuration error" },
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+  }
+
   // Skip authentication in development mode
-  if (process.env.NODE_ENV === "development") {
+  if (env.NODE_ENV === "development") {
     return next();
   }
 
@@ -72,8 +85,7 @@ export async function authMiddleware(c: Context, next: Next) {
     );
   }
 
-  const secret = process.env.BATCH_SECRET;
-  if (!secret) {
+  if (!env.BATCH_SECRET) {
     console.error("BATCH_SECRET environment variable not set");
     return c.json(
       { error: "Internal Server Error", message: "Server configuration error" },
@@ -81,7 +93,11 @@ export async function authMiddleware(c: Context, next: Next) {
     );
   }
 
-  const valid = await verifyHmacSignature(authHeader, secret, timestamp);
+  const valid = await verifyHmacSignature(
+    authHeader,
+    env.BATCH_SECRET,
+    timestamp,
+  );
   if (!valid) {
     return c.json(
       { error: "Forbidden", message: "Invalid authentication signature" },

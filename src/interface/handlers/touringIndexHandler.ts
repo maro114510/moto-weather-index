@@ -1,6 +1,10 @@
 // src/interface/handlers/touringIndexHandler.ts
 import type { Context } from "hono";
 import { z } from "zod";
+import {
+  validateCloudflareBindings,
+  validateEnvironment,
+} from "../../config/environmentValidation";
 import { APP_CONFIG } from "../../constants/appConfig";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import {
@@ -282,8 +286,24 @@ export async function postTouringIndexBatch(c: Context) {
       startDate: c.req.query("startDate"),
     });
 
+    // Validate environment variables for batch processing
+    let env: ReturnType<typeof validateEnvironment>;
+    try {
+      env = validateEnvironment(c.env || process.env);
+    } catch (error) {
+      logger.error("Environment validation failed in batch handler", {
+        ...requestContext,
+        operation: "batch_env_validation_error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return c.json(
+        { error: "Internal server error" },
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     // Use custom start date if provided, otherwise fall back to environment variable, then default behavior
-    const effectiveStartDate = startDate || c.env?.BATCH_START_DATE;
+    const effectiveStartDate = startDate || env.BATCH_START_DATE;
 
     logger.info("Starting batch processing", {
       ...requestContext,

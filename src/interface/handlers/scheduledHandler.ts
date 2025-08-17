@@ -1,5 +1,9 @@
 import type { ExecutionContext } from "@cloudflare/workers-types";
 import {
+  validateCloudflareBindings,
+  validateEnvironment,
+} from "../../config/environmentValidation";
+import {
   createBatchCalculateTouringIndexUsecase,
   createTouringIndexRepository,
   createWeatherRepository,
@@ -24,9 +28,19 @@ export async function scheduledHandler(
   });
 
   try {
-    // Check if database is available
-    if (!env.DB) {
-      throw new Error("Database not available in scheduled environment");
+    // Validate environment bindings
+    let validatedBindings: ReturnType<typeof validateCloudflareBindings>;
+    let validatedEnv: ReturnType<typeof validateEnvironment>;
+
+    try {
+      validatedBindings = validateCloudflareBindings(env);
+      validatedEnv = validateEnvironment(env);
+    } catch (error) {
+      logger.error("Environment validation failed in scheduled handler", {
+        operation: "scheduled_env_validation_error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
 
     // Default parameters for scheduled execution
@@ -34,8 +48,10 @@ export async function scheduledHandler(
     const maxRetries = 3;
 
     // Create repositories and usecase
-    const weatherRepo = createWeatherRepository(env.OPEN_METEO_CACHE);
-    const touringIndexRepo = createTouringIndexRepository(env.DB);
+    const weatherRepo = createWeatherRepository(
+      validatedBindings.OPEN_METEO_CACHE,
+    );
+    const touringIndexRepo = createTouringIndexRepository(validatedBindings.DB);
     const batchUsecase = createBatchCalculateTouringIndexUsecase(
       weatherRepo,
       touringIndexRepo,
@@ -43,14 +59,14 @@ export async function scheduledHandler(
 
     // Generate target dates - use custom start date if provided
     let targetDates: string[];
-    if (env.BATCH_START_DATE) {
+    if (validatedEnv.BATCH_START_DATE) {
       logger.info("Using custom start date for batch processing", {
         operation: "batch_processing",
-        startDate: env.BATCH_START_DATE,
+        startDate: validatedEnv.BATCH_START_DATE,
       });
       targetDates =
         BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
-          env.BATCH_START_DATE,
+          validatedEnv.BATCH_START_DATE,
           days,
         );
     } else {
