@@ -217,11 +217,11 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
         condition,
         temperature:
           (daily.temperature_2m_max[idx] + daily.temperature_2m_min[idx]) / 2,
-        windSpeed: daily.windspeed_10m_max[idx],
-        humidity: daily.relative_humidity_2m_max[idx],
+        windSpeed: daily.windspeed_10m_max[idx] || 0,
+        humidity: daily.relative_humidity_2m_max[idx] || 50,
         visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
-        precipitationProbability: daily.precipitation_probability_max[idx],
-        uvIndex: daily.uv_index_max[idx],
+        precipitationProbability: daily.precipitation_probability_max[idx] || 0,
+        uvIndex: daily.uv_index_max[idx] || 0,
       };
 
       logger.info("Weather data successfully fetched and processed", {
@@ -343,11 +343,11 @@ export class OpenMeteoWeatherRepository implements WeatherRepository {
           condition,
           temperature:
             (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
-          windSpeed: daily.windspeed_10m_max[i],
-          humidity: daily.relative_humidity_2m_max[i],
+          windSpeed: daily.windspeed_10m_max[i] || 0,
+          humidity: daily.relative_humidity_2m_max[i] || 50,
           visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM, // Default visibility for daily data
-          precipitationProbability: daily.precipitation_probability_max[i],
-          uvIndex: daily.uv_index_max[i],
+          precipitationProbability: daily.precipitation_probability_max[i] || 0,
+          uvIndex: daily.uv_index_max[i] || 0,
         };
 
         weatherDataList.push(weatherData);

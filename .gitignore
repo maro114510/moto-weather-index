@@ -48,5 +48,6 @@ bun.lock
 
 ### Output ###
 repomix-output.xml
+.serena
 
 # End Of Ignore
