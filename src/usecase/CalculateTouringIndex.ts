@@ -9,8 +9,8 @@ import {
   windScore,
 } from "../domain/ScoreRules";
 import {
-  type TouringScoreFactors,
   calculateTouringScore,
+  type TouringScoreFactors,
 } from "../domain/TouringScore";
 import type { Weather } from "../domain/Weather";
 
