@@ -17,7 +17,7 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
         {
           ...requestContext,
           operation: "validation",
-          validationErrors: error.errors.map((e) => ({
+          validationErrors: error.issues.map((e) => ({
             path: e.path.join("."),
             message: e.message,
             code: e.code,
@@ -29,7 +29,7 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
       return c.json(
         {
           error: "Invalid parameters",
-          details: error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
+          details: error.issues.map((e) => `${e.path.join(".")}: ${e.message}`),
           requestId: c.get("requestId"),
         },
         HTTP_STATUS.BAD_REQUEST,

@@ -83,7 +83,7 @@ export async function getTouringIndex(c: Context) {
     return c.json(response, HTTP_STATUS.OK);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessage = error.errors
+      const errorMessage = error.issues
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
       return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
@@ -233,7 +233,7 @@ export async function getTouringIndexHistory(c: Context) {
     return c.json(response, HTTP_STATUS.OK);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessage = error.errors
+      const errorMessage = error.issues
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
       return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
