@@ -36,14 +36,12 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
       );
     }
 
-    // Check if it's a known API error (has status code)
-    if (
-      error &&
-      typeof error === "object" &&
-      "status" in error &&
-      typeof error.status === "number"
-    ) {
-      const statusCode = error.status as number;
+    // Check if it's a known API error (has status code) or custom HttpError
+    const statusLike =
+      (error && typeof error === "object" && (error as any).status) ||
+      (error instanceof Error && (error as any).cause?.status);
+    if (Number.isFinite(statusLike as number)) {
+      const statusCode = Number(statusLike);
       const message = (error as any).message || "Unknown error";
 
       if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
@@ -72,13 +70,7 @@ export async function errorHandlingMiddleware(c: Context, next: Next) {
         );
       }
 
-      return c.json(
-        {
-          error: message,
-          requestId: c.get("requestId"),
-        },
-        statusCode as any,
-      );
+      return c.json({ error: message, requestId: c.get("requestId") }, statusCode);
     }
 
     // Check for fetch/network errors

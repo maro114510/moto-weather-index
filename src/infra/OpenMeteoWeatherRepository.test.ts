@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test, mock } from "bun:test";
 import { OpenMeteoWeatherRepository } from "./OpenMeteoWeatherRepository";
 
 // Helper function to calculate expected datetime format for daily data
@@ -13,21 +13,61 @@ function isValidISODateTime(datetime: string): boolean {
   return isoDateTimeRegex.test(datetime);
 }
 
-// Simple integration tests without mocking
+// Mock axios to avoid real network calls
+const axiosGetMock = mock(async (_url: string, _opts?: any) => {
+  // Build deterministic forecast data for today and the next days
+  const today = new Date();
+  const d0 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const days = [0, 1, 2].map((i) => {
+    const di = new Date(d0.getTime() + i * 86400000);
+    return {
+      date: fmt(di),
+      day: {
+        condition: { code: 1000, text: "Sunny" },
+        maxtemp_c: 10 + i,
+        mintemp_c: 4 + i,
+        avgtemp_c: 7 + i,
+        maxwind_kph: 10 + i,
+        avghumidity: 40 + i,
+        avgvis_km: 10,
+        daily_chance_of_rain: 0,
+        daily_chance_of_snow: 0,
+        uv: 4,
+      },
+    };
+  });
+  return {
+    status: 200,
+    data: { forecast: { forecastday: days } },
+  } as any;
+});
+
+mock.module("axios", () => ({ default: { get: axiosGetMock } }));
+
+// Unit-like tests with mocked transport
 describe("OpenMeteoWeatherRepository", () => {
   let repository: OpenMeteoWeatherRepository;
 
   beforeEach(() => {
+    process.env.WEATHERAPI_KEY = "dummy";
+    axiosGetMock.mockReset();
     repository = new OpenMeteoWeatherRepository();
   });
 
   describe("getWeather", () => {
     test("should return weather data with correct structure", async () => {
-      // Use a known date that should have data
+      // Use today; repository should consume mocked forecast data
+      const today = new Date();
+      const dateStr = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0),
+      )
+        .toISOString()
+        .replace(".000Z", "Z");
       const result = await repository.getWeather(
         35.6785, // Tokyo latitude
         139.6823, // Tokyo longitude
-        "2025-06-01T12:00:00Z",
+        dateStr,
       );
 
       // Verify structure
@@ -51,7 +91,7 @@ describe("OpenMeteoWeatherRepository", () => {
       expect(typeof result.uvIndex).toBe("number");
 
       // Verify datetime is preserved
-      expect(result.datetime).toBe("2025-06-01T12:00:00Z");
+      expect(result.datetime).toBe(dateStr);
 
       // Verify reasonable value ranges
       expect(result.temperature).toBeGreaterThan(-50);
@@ -66,11 +106,13 @@ describe("OpenMeteoWeatherRepository", () => {
     });
 
     test("should handle different weather conditions", async () => {
-      const result = await repository.getWeather(
-        35.6785,
-        139.6823,
-        "2025-06-02T12:00:00Z",
-      );
+      const today = new Date();
+      const dateStr = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0),
+      )
+        .toISOString()
+        .replace(".000Z", "Z");
+      const result = await repository.getWeather(35.6785, 139.6823, dateStr);
 
       const validConditions = [
         "clear",
@@ -90,12 +132,12 @@ describe("OpenMeteoWeatherRepository", () => {
 
   describe("getWeatherBatch", () => {
     test("should return batch weather data with correct structure", async () => {
-      const result = await repository.getWeatherBatch(
-        35.6785,
-        139.6823,
-        "2025-06-01",
-        "2025-06-03",
-      );
+      const today = new Date();
+      const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      const end = new Date(start.getTime() + 2 * 86400000);
+      const startStr = start.toISOString().slice(0, 10);
+      const endStr = end.toISOString().slice(0, 10);
+      const result = await repository.getWeatherBatch(35.6785, 139.6823, startStr, endStr);
 
       // Should return 3 days of data
       expect(result).toHaveLength(3); // Check each day's data structure
@@ -135,20 +177,18 @@ describe("OpenMeteoWeatherRepository", () => {
 
   describe("consistency between single and batch requests", () => {
     test("should return consistent data structure", async () => {
+      const today = new Date();
+      const noonIso = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0),
+      )
+        .toISOString()
+        .replace(".000Z", "Z");
       // Get single day data
-      const singleResult = await repository.getWeather(
-        35.6785,
-        139.6823,
-        "2025-06-01T12:00:00Z",
-      );
+      const singleResult = await repository.getWeather(35.6785, 139.6823, noonIso);
 
       // Get same day in batch
-      const batchResult = await repository.getWeatherBatch(
-        35.6785,
-        139.6823,
-        "2025-06-01",
-        "2025-06-01",
-      );
+      const dayStr = noonIso.slice(0, 10);
+      const batchResult = await repository.getWeatherBatch(35.6785, 139.6823, dayStr, dayStr);
 
       // Should have same structure
       expect(typeof singleResult.condition).toBe(
@@ -181,9 +221,7 @@ describe("OpenMeteoWeatherRepository", () => {
       expect(singleResult.uvIndex).toBe(batchResult[0].uvIndex);
 
       // Verify batch result uses the expected datetime format
-      expect(batchResult[0].datetime).toBe(
-        getExpectedDailyDatetime("2025-06-01"),
-      );
+      expect(batchResult[0].datetime).toBe(getExpectedDailyDatetime(dayStr));
     });
   });
 
@@ -192,11 +230,13 @@ describe("OpenMeteoWeatherRepository", () => {
       // This test verifies that the mapWeatherCode function works
       // We can't directly test it since it's not exported, but we can verify
       // that the API returns valid conditions
-      const result = await repository.getWeather(
-        35.6785,
-        139.6823,
-        "2025-06-01T12:00:00Z",
-      );
+      const today = new Date();
+      const dateStr = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0),
+      )
+        .toISOString()
+        .replace(".000Z", "Z");
+      const result = await repository.getWeather(35.6785, 139.6823, dateStr);
 
       const validConditions = [
         "clear", // code 0
@@ -216,7 +256,15 @@ describe("OpenMeteoWeatherRepository", () => {
 
   describe("datetime format validation", () => {
     test("should generate consistent datetime format for daily data", async () => {
-      const testDate = "2025-06-15";
+      const testDate = new Date(
+        Date.UTC(
+          new Date().getUTCFullYear(),
+          new Date().getUTCMonth(),
+          new Date().getUTCDate(),
+        ),
+      )
+        .toISOString()
+        .slice(0, 10);
       const expectedDateTime = getExpectedDailyDatetime(testDate);
 
       // Verify the helper function generates the expected format
@@ -236,8 +284,17 @@ describe("OpenMeteoWeatherRepository", () => {
     });
 
     test("should handle multiple consecutive dates correctly", async () => {
-      const startDate = "2025-06-10";
-      const endDate = "2025-06-12";
+      const base = new Date(
+        Date.UTC(
+          new Date().getUTCFullYear(),
+          new Date().getUTCMonth(),
+          new Date().getUTCDate(),
+        ),
+      );
+      const startDate = base.toISOString().slice(0, 10);
+      const endDate = new Date(base.getTime() + 2 * 86400000)
+        .toISOString()
+        .slice(0, 10);
 
       const result = await repository.getWeatherBatch(
         35.6785,
