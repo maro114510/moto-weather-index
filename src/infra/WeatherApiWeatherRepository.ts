@@ -338,20 +338,12 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       return [];
     }
 
-    // Fetch once and reuse values to satisfy interface and tests
-    // Normalize base fetch time to use T03:00:00Z consistently
-    const base = await this.getWeather(lat, lon, `${days[0]}T03:00:00Z`);
-
-    const results: Weather[] = days.map((dateStr) => ({
-      datetime: `${dateStr}T03:00:00Z`, // 12:00 JST = 03:00 UTC
-      condition: base.condition,
-      temperature: base.temperature,
-      windSpeed: base.windSpeed,
-      humidity: base.humidity,
-      visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
-      precipitationProbability: base.precipitationProbability,
-      uvIndex: base.uvIndex,
-    }));
+    // Fetch weather data individually for each date
+    const results: Weather[] = [];
+    for (const dateStr of days) {
+      const weather = await this.getWeather(lat, lon, `${dateStr}T03:00:00Z`); // 12:00 JST = 03:00 UTC
+      results.push(weather);
+    }
 
     return results;
   }
