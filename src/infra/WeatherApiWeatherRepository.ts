@@ -40,6 +40,37 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
   return "unknown";
 }
 
+/**
+ * Parses precipitation probability from WeatherAPI response and clamps to 0-100 range
+ * Handles both string and number types as WeatherAPI sometimes returns strings
+ */
+function parseAndClampPrecipitationProbability(value: unknown, fieldName: string): number {
+  let parsed: number;
+
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string") {
+    parsed = parseFloat(value);
+  } else {
+    logger.error(
+      "Invalid WeatherAPI precipitation probability type",
+      { operation: "api_response_validation", field: fieldName, valueType: typeof value },
+    );
+    throw new Error(`Invalid WeatherAPI response: ${fieldName} must be number or string`);
+  }
+
+  if (Number.isNaN(parsed)) {
+    logger.error(
+      "Invalid WeatherAPI precipitation probability value",
+      { operation: "api_response_validation", field: fieldName, value },
+    );
+    throw new Error(`Invalid WeatherAPI response: ${fieldName} is not a valid number`);
+  }
+
+  // Clamp to 0-100 range
+  return Math.max(0, Math.min(100, parsed));
+}
+
 export class WeatherApiWeatherRepository implements WeatherRepository {
   private kv?: KVNamespace;
   private readonly apiKey?: string;
@@ -216,7 +247,6 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         ["avgtemp_c", day.avgtemp_c],
         ["maxwind_kph", day.maxwind_kph],
         ["avghumidity", day.avghumidity],
-        ["daily_chance_of_rain", day.daily_chance_of_rain],
         ["uv", day.uv],
       ];
       for (const [name, value] of numericFields) {
@@ -228,6 +258,12 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           throw new Error(`Invalid WeatherAPI response: ${name}`);
         }
       }
+
+      // Handle daily_chance_of_rain separately as it can be a string
+      const precipitationProbability = parseAndClampPrecipitationProbability(
+        day.daily_chance_of_rain,
+        "daily_chance_of_rain"
+      );
 
       const conditionCode: number | undefined = day?.condition?.code;
       const condition: WeatherCondition = conditionCode
@@ -243,7 +279,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         windSpeed: day.maxwind_kph / 3.6,
         humidity: day.avghumidity,
         visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
-        precipitationProbability: day.daily_chance_of_rain,
+        precipitationProbability: precipitationProbability,
         uvIndex: day.uv,
       };
 
