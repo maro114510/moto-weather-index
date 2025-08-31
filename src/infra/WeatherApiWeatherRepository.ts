@@ -22,14 +22,14 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
     [1150, 1153, 1168, 1171, 1180, 1183].includes(code)
   )
     return "drizzle";
-  // Rain (including showers, thunder with rain)
+  // Rain (including showers, thunder with rain, excluding sleet)
   if (
     [
-      1063, 1186, 1189, 1192, 1195, 1240, 1243, 1246, 1249, 1252, 1273, 1276,
+      1063, 1186, 1189, 1192, 1195, 1240, 1243, 1246, 1273, 1276,
     ].includes(code)
   )
     return "rain";
-  // Snow / sleet / ice pellets
+  // Snow / sleet / ice pellets (including sleet showers)
   if (
     [
       1066, 1069, 1072, 1114, 1117, 1210, 1213, 1216, 1219, 1222, 1225, 1237,
