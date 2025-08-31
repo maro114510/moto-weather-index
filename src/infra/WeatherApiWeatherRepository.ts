@@ -161,19 +161,65 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     datetime: string,
   ): Promise<Weather> {
     const key = this.getApiKey();
-    const url = "https://api.weatherapi.com/v1/forecast.json";
 
-    const params = {
-      key,
-      q: `${lat},${lon}`,
-      days: 1,
-      aqi: "no",
-      alerts: "no",
-    } as const;
+    // Extract date from datetime (YYYY-MM-DD format)
+    const targetDate = datetime.split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+
+    // Determine which API endpoint to use based on date
+    const isHistorical = targetDate < today;
+    const isForecast = targetDate >= today;
+
+    // WeatherAPI forecast supports up to 14 days in the future
+    const maxForecastDate = new Date();
+    maxForecastDate.setDate(maxForecastDate.getDate() + 14);
+    const maxForecastDateStr = maxForecastDate.toISOString().split('T')[0];
+
+    let url: string;
+    let params: any;
+
+    if (isHistorical) {
+      // Use history API for past dates
+      url = "https://api.weatherapi.com/v1/history.json";
+      params = {
+        key,
+        q: `${lat},${lon}`,
+        dt: targetDate,
+        aqi: "no",
+      };
+    } else if (isForecast && targetDate <= maxForecastDateStr) {
+      // Use forecast API for today and future dates (up to 14 days)
+      url = "https://api.weatherapi.com/v1/forecast.json";
+
+      // Normalize both dates to UTC midnight for accurate day difference calculation
+      const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number);
+      const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+
+      const targetMidnight = new Date(Date.UTC(targetYear, targetMonth - 1, targetDay));
+      const todayMidnight = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / msPerDay);
+
+      // Clamp to API limits: minimum 1 day, maximum 14 days
+      const days = Math.min(14, Math.max(1, diffDays + 1));
+
+      params = {
+        key,
+        q: `${lat},${lon}`,
+        days: days,
+        dt: targetDate,
+        aqi: "no",
+        alerts: "no",
+      };
+    } else {
+      // Date is too far in the future, fall back to history API
+      throw new Error(`Date ${targetDate} is beyond WeatherAPI forecast range (max 14 days from today)`);
+    }
 
     logger.externalApiCall("WeatherAPI", url, {
       operation: "fetch_weather_api",
-      params: { q: params.q, days: params.days },
+      params: { q: params.q, dt: targetDate, endpoint: isHistorical ? 'history' : 'forecast' },
     });
 
     // Request with exponential backoff (no retry for 429 or other 4xx)
@@ -238,11 +284,25 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     try {
       const res = await requestWithBackoff();
 
-      const day = res.data?.forecast?.forecastday?.[0]?.day;
+      // Parse response based on endpoint type
+      let day: any;
+      if (isHistorical) {
+        day = res.data?.forecast?.forecastday?.[0]?.day;
+      } else {
+        // For forecast, find the specific day we requested
+        const forecastDays = res.data?.forecast?.forecastday;
+        if (forecastDays && Array.isArray(forecastDays)) {
+          const targetDay = forecastDays.find(d => d.date === targetDate);
+          day = targetDay?.day;
+        } else {
+          day = res.data?.forecast?.forecastday?.[0]?.day;
+        }
+      }
+
       if (!day) {
         logger.error(
           "Invalid WeatherAPI response structure",
-          { operation: "api_response_validation", missing: "forecast.forecastday[0].day" },
+          { operation: "api_response_validation", missing: "forecast.forecastday[0].day", endpoint: isHistorical ? 'history' : 'forecast' },
         );
         throw new Error("Invalid WeatherAPI response structure");
       }
@@ -299,6 +359,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
             statusText: error.response?.statusText,
             errorCode: error.code,
             url,
+            targetDate,
           },
           error,
         );
@@ -338,20 +399,12 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       return [];
     }
 
-    // Fetch once and reuse values to satisfy interface and tests
-    // Normalize base fetch time to use T03:00:00Z consistently
-    const base = await this.getWeather(lat, lon, `${days[0]}T03:00:00Z`);
-
-    const results: Weather[] = days.map((dateStr) => ({
-      datetime: `${dateStr}T03:00:00Z`, // 12:00 JST = 03:00 UTC
-      condition: base.condition,
-      temperature: base.temperature,
-      windSpeed: base.windSpeed,
-      humidity: base.humidity,
-      visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
-      precipitationProbability: base.precipitationProbability,
-      uvIndex: base.uvIndex,
-    }));
+    // Fetch weather data individually for each date
+    const results: Weather[] = [];
+    for (const dateStr of days) {
+      const weather = await this.getWeather(lat, lon, `${dateStr}T03:00:00Z`); // 12:00 JST = 03:00 UTC
+      results.push(weather);
+    }
 
     return results;
   }
