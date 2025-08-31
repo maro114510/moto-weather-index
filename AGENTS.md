@@ -15,6 +15,10 @@
 - `task lint` / `task format`: Lint and format via Biome.
 - `task wrangler:dev` / `task wrangler:deploy`: Cloudflare Workers dev/deploy.
 
+### Secrets
+- Set WeatherAPI key for Workers:
+  - `wrangler secret put WEATHERAPI_KEY`
+  - In handlers, pass `env.WEATHERAPI_KEY` into DI when constructing the repository.
 ## Coding Style & Naming Conventions
 - Language: TypeScript (ESNext), 2‑space indentation.
 - Lint/Format: Biome (`task lint`, `task format`).
