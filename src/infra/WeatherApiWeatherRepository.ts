@@ -275,17 +275,31 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     // Build an array of dates inclusively
     const start = new Date(startDate + "T00:00:00Z");
     const end = new Date(endDate + "T00:00:00Z");
+
+    // Validate that both dates are valid
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       throw new Error("Invalid date range for getWeatherBatch");
     }
 
+    // Validate that start <= end
+    if (start.getTime() > end.getTime()) {
+      throw new Error("Start date must be less than or equal to end date");
+    }
+
     const days: string[] = [];
+    // Include the range inclusively: start <= date <= end
     for (let d = new Date(start); d.getTime() <= end.getTime(); d.setUTCDate(d.getUTCDate() + 1)) {
       days.push(d.toISOString().slice(0, 10));
     }
 
+    // Safety check: return empty array if no days were generated
+    if (days.length === 0) {
+      return [];
+    }
+
     // Fetch once and reuse values to satisfy interface and tests
-    const base = await this.getWeather(lat, lon, `${days[0]}T12:00:00Z`);
+    // Normalize base fetch time to use T03:00:00Z consistently
+    const base = await this.getWeather(lat, lon, `${days[0]}T03:00:00Z`);
 
     const results: Weather[] = days.map((dateStr) => ({
       datetime: `${dateStr}T03:00:00Z`, // 12:00 JST = 03:00 UTC
