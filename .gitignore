@@ -2,6 +2,7 @@
 
 # Environments
 .env
+.dev.vars
 
 ### others ###
 # *.jpg

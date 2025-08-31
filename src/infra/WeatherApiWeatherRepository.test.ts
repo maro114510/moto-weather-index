@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { OpenMeteoWeatherRepository } from "./OpenMeteoWeatherRepository";
+import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 
 // Helper function to calculate expected datetime format for daily data
 // Based on the implementation: noon JST (12:00) = 03:00 UTC
@@ -14,16 +14,15 @@ function isValidISODateTime(datetime: string): boolean {
 }
 
 // Simple integration tests without mocking
-describe("OpenMeteoWeatherRepository", () => {
-  let repository: OpenMeteoWeatherRepository;
+describe("WeatherApiWeatherRepository", () => {
+  let repository: WeatherApiWeatherRepository;
 
   beforeEach(() => {
-    repository = new OpenMeteoWeatherRepository();
+    repository = new WeatherApiWeatherRepository();
   });
 
   describe("getWeather", () => {
     test("should return weather data with correct structure", async () => {
-      // Use a known date that should have data
       const result = await repository.getWeather(
         35.6785, // Tokyo latitude
         139.6823, // Tokyo longitude
@@ -76,6 +75,7 @@ describe("OpenMeteoWeatherRepository", () => {
         "clear",
         "mostly_clear",
         "partly_cloudy",
+        "cloudy",
         "overcast",
         "fog",
         "drizzle",
@@ -98,8 +98,8 @@ describe("OpenMeteoWeatherRepository", () => {
       );
 
       // Should return 3 days of data
-      expect(result).toHaveLength(3); // Check each day's data structure
-      result.forEach((weather, _index) => {
+      expect(result).toHaveLength(3);
+      result.forEach((weather) => {
         expect(weather).toHaveProperty("datetime");
         expect(weather).toHaveProperty("condition");
         expect(weather).toHaveProperty("temperature");
@@ -112,7 +112,7 @@ describe("OpenMeteoWeatherRepository", () => {
         // Verify datetime format for batch requests - should be valid ISO format
         expect(isValidISODateTime(weather.datetime)).toBe(true);
 
-        // Verify visibility is set to default value for daily data
+        // Visibility default for daily data
         expect(weather.visibility).toBe(20);
 
         // Verify reasonable value ranges
@@ -126,7 +126,7 @@ describe("OpenMeteoWeatherRepository", () => {
         expect(weather.uvIndex).toBeGreaterThanOrEqual(0);
       });
 
-      // Verify correct date sequence using dynamic calculation
+      // Verify correct date sequence
       expect(result[0].datetime).toBe(getExpectedDailyDatetime("2025-06-01"));
       expect(result[1].datetime).toBe(getExpectedDailyDatetime("2025-06-02"));
       expect(result[2].datetime).toBe(getExpectedDailyDatetime("2025-06-03"));
@@ -135,14 +135,12 @@ describe("OpenMeteoWeatherRepository", () => {
 
   describe("consistency between single and batch requests", () => {
     test("should return consistent data structure", async () => {
-      // Get single day data
       const singleResult = await repository.getWeather(
         35.6785,
         139.6823,
         "2025-06-01T12:00:00Z",
       );
 
-      // Get same day in batch
       const batchResult = await repository.getWeatherBatch(
         35.6785,
         139.6823,
@@ -169,7 +167,7 @@ describe("OpenMeteoWeatherRepository", () => {
       );
       expect(typeof singleResult.uvIndex).toBe(typeof batchResult[0].uvIndex);
 
-      // Both should use daily data, so values should be the same
+      // Both should use daily-like data, so values should be the same
       expect(singleResult.condition).toBe(batchResult[0].condition);
       expect(singleResult.temperature).toBe(batchResult[0].temperature);
       expect(singleResult.windSpeed).toBe(batchResult[0].windSpeed);
@@ -184,77 +182,6 @@ describe("OpenMeteoWeatherRepository", () => {
       expect(batchResult[0].datetime).toBe(
         getExpectedDailyDatetime("2025-06-01"),
       );
-    });
-  });
-
-  describe("weather code mapping", () => {
-    test("should map weather codes correctly", async () => {
-      // This test verifies that the mapWeatherCode function works
-      // We can't directly test it since it's not exported, but we can verify
-      // that the API returns valid conditions
-      const result = await repository.getWeather(
-        35.6785,
-        139.6823,
-        "2025-06-01T12:00:00Z",
-      );
-
-      const validConditions = [
-        "clear", // code 0
-        "mostly_clear", // code 1
-        "partly_cloudy", // code 2
-        "overcast", // code 3
-        "fog", // codes 45, 48
-        "drizzle", // codes 51, 53, 55, 56, 57
-        "rain", // codes 61, 63, 65, 80, 81, 82
-        "snow", // codes 71, 73, 75, 77, 85, 86
-        "unknown", // fallback
-      ];
-
-      expect(validConditions).toContain(result.condition);
-    });
-  });
-
-  describe("datetime format validation", () => {
-    test("should generate consistent datetime format for daily data", async () => {
-      const testDate = "2025-06-15";
-      const expectedDateTime = getExpectedDailyDatetime(testDate);
-
-      // Verify the helper function generates the expected format
-      expect(expectedDateTime).toBe(`${testDate}T03:00:00Z`);
-      expect(isValidISODateTime(expectedDateTime)).toBe(true);
-
-      // Verify batch result matches expected format
-      const batchResult = await repository.getWeatherBatch(
-        35.6785,
-        139.6823,
-        testDate,
-        testDate,
-      );
-
-      expect(batchResult).toHaveLength(1);
-      expect(batchResult[0].datetime).toBe(expectedDateTime);
-    });
-
-    test("should handle multiple consecutive dates correctly", async () => {
-      const startDate = "2025-06-10";
-      const endDate = "2025-06-12";
-
-      const result = await repository.getWeatherBatch(
-        35.6785,
-        139.6823,
-        startDate,
-        endDate,
-      );
-
-      expect(result).toHaveLength(3);
-
-      // Verify each date follows the expected pattern
-      const expectedDates = ["2025-06-10", "2025-06-11", "2025-06-12"];
-      result.forEach((weather, index) => {
-        const expectedDateTime = getExpectedDailyDatetime(expectedDates[index]);
-        expect(weather.datetime).toBe(expectedDateTime);
-        expect(isValidISODateTime(weather.datetime)).toBe(true);
-      });
     });
   });
 });

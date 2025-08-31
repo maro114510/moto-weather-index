@@ -10,6 +10,7 @@ import { logger } from "../../utils/logger";
 interface Env {
   OPEN_METEO_CACHE?: KVNamespace;
   DB?: D1Database;
+  WEATHERAPI_KEY?: string;
   BATCH_START_DATE?: string; // Optional custom start date for batch processing (YYYY-MM-DD format)
 }
 
@@ -34,7 +35,7 @@ export async function scheduledHandler(
     const maxRetries = 3;
 
     // Create repositories and usecase
-    const weatherRepo = createWeatherRepository(env.OPEN_METEO_CACHE);
+    const weatherRepo = createWeatherRepository(env.OPEN_METEO_CACHE, env.WEATHERAPI_KEY);
     const touringIndexRepo = createTouringIndexRepository(env.DB);
     const batchUsecase = createBatchCalculateTouringIndexUsecase(
       weatherRepo,

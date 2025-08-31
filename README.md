@@ -4,7 +4,7 @@ A TypeScript-based REST API service that calculates motorcycle touring comfort i
 
 ## 🌟 Features
 
-- **Real-time Weather Analysis**: Fetches current weather data from Open-Meteo API
+- **Real-time Weather Analysis**: Fetches weather data from WeatherAPI.com
 - **Comprehensive Scoring System**: Evaluates 8 key meteorological factors
 - **Motorcycle-Specific Logic**: Scoring algorithms tailored for motorcycle touring safety and comfort
 - **Cloudflare Workers Deployment**: Fast, globally distributed API responses
@@ -324,7 +324,7 @@ curl -X POST "https://moto-weather-index.stelzen.dev/api/v1/touring-index/batch?
 
 ### External APIs
 
-- **Weather Data**: [Open-Meteo API](https://open-meteo.com/) - Free weather forecast API
+- **Weather Data**: [WeatherAPI.com](https://www.weatherapi.com/) - Weather forecast API (requires `WEATHERAPI_KEY`)
 - **Prefecture Data**: Static Japanese prefecture coordinates
 
 ### Development Tools
@@ -379,6 +379,7 @@ database_name = "moto-weather-db"
 
 - `BATCH_SECRET`: HMAC secret for batch endpoint authentication
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
+- `WEATHERAPI_KEY`: API key for WeatherAPI.com (required for weather fetching and tests)
 
 ### Local Development
 
@@ -421,7 +422,7 @@ task wrangler:dev
 
 ```bash
 # Run all tests
-bun test
+WEATHERAPI_KEY=your_key bun test
 
 # Lint code
 task lint

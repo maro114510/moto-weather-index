@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      WEATHERAPI_KEY: ${{ secrets.WEATHERAPI_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
@@ -17,4 +19,6 @@ jobs:
       - run: bun install
       - name: Lint code
         run: bunx biome check --config-path .biomerc.json .
-      - run: bun test
+      - name: Run tests
+        run: bun test
+        if: ${{ env.WEATHERAPI_KEY != '' }}
