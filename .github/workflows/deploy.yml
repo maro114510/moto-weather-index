@@ -25,6 +25,8 @@ jobs:
 
       - name: Run tests
         run: bun test
+        env:
+          WEATHERAPI_KEY: ${{ secrets.WEATHERAPI_KEY }}
 
       - name: Deploy to Cloudflare Workers (with retry)
         uses: nick-invision/retry@v3
