@@ -35,7 +35,7 @@ export async function getWeather(c: Context) {
 
     // Get KV namespace from environment
     const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv);
+    const weatherRepo = createWeatherRepository(kv, c.env?.WEATHERAPI_KEY);
 
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
 

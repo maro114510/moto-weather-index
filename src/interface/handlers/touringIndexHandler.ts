@@ -58,7 +58,7 @@ export async function getTouringIndex(c: Context) {
 
     // Get KV namespace from environment
     const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv);
+    const weatherRepo = createWeatherRepository(kv, c.env?.WEATHERAPI_KEY);
 
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
     const { score, breakdown } = calculateTouringIndex(weather);
@@ -293,7 +293,7 @@ export async function postTouringIndexBatch(c: Context) {
 
     // Create repositories and usecase
     const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv);
+    const weatherRepo = createWeatherRepository(kv, c.env?.WEATHERAPI_KEY);
     const touringIndexRepo = createTouringIndexRepository(db);
     const batchUsecase = createBatchCalculateTouringIndexUsecase(
       weatherRepo,

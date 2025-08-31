@@ -42,11 +42,13 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
 
 export class WeatherApiWeatherRepository implements WeatherRepository {
   private kv?: KVNamespace;
+  private readonly apiKey?: string;
   private readonly cacheExpirationSeconds =
     APP_CONFIG.CACHE_EXPIRATION_HOURS * 60 * 60;
 
-  constructor(kv?: KVNamespace) {
+  constructor(kv?: KVNamespace, apiKey?: string) {
     this.kv = kv;
+    this.apiKey = apiKey;
     logger.info("WeatherApiWeatherRepository initialized", {
       operation: "repository_init",
       cacheEnabled: !!kv,
@@ -59,10 +61,10 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
   }
 
   private getApiKey(): string {
-    const key = process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
+    const key = this.apiKey || process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
     if (!key) {
       throw new Error(
-        "WeatherAPI key not found. Set WEATHERAPI_KEY environment variable.",
+        "WeatherAPI key not found. Provide apiKey parameter or set WEATHERAPI_KEY environment variable.",
       );
     }
     return key;

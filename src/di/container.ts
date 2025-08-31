@@ -2,8 +2,8 @@ import { D1TouringIndexRepository } from "../infra/D1TouringIndexRepository";
 import { WeatherApiWeatherRepository } from "../infra/WeatherApiWeatherRepository";
 import { BatchCalculateTouringIndexUsecase } from "../usecase/BatchCalculateTouringIndex";
 
-export function createWeatherRepository(kv?: KVNamespace) {
-  return new WeatherApiWeatherRepository(kv);
+export function createWeatherRepository(kv?: KVNamespace, apiKey?: string) {
+  return new WeatherApiWeatherRepository(kv, apiKey);
 }
 
 export function createTouringIndexRepository(db: D1Database) {
