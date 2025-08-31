@@ -190,10 +190,24 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     } else if (isForecast && targetDate <= maxForecastDateStr) {
       // Use forecast API for today and future dates (up to 14 days)
       url = "https://api.weatherapi.com/v1/forecast.json";
+
+      // Normalize both dates to UTC midnight for accurate day difference calculation
+      const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number);
+      const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+
+      const targetMidnight = new Date(Date.UTC(targetYear, targetMonth - 1, targetDay));
+      const todayMidnight = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / msPerDay);
+
+      // Clamp to API limits: minimum 1 day, maximum 14 days
+      const days = Math.min(14, Math.max(1, diffDays + 1));
+
       params = {
         key,
         q: `${lat},${lon}`,
-        days: Math.ceil((new Date(targetDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)) + 1,
+        days: days,
         dt: targetDate,
         aqi: "no",
         alerts: "no",
