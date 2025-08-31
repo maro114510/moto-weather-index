@@ -92,7 +92,12 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
   }
 
   private getApiKey(): string {
-    const key = this.apiKey || process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
+    let key = this.apiKey;
+
+    if (!key && typeof process !== "undefined" && process.env) {
+      key = process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
+    }
+
     if (!key) {
       throw new Error(
         "WeatherAPI key not found. Provide apiKey parameter or set WEATHERAPI_KEY environment variable.",
