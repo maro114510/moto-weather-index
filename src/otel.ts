@@ -1,6 +1,6 @@
-import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
-import { NodeSDK } from "@opentelemetry/sdk-node";
+import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 
 // Allow disabling via env (support non-standard OTEL_ENABLED as well)
 const otelEnabledEnv = process.env.OTEL_ENABLED;
