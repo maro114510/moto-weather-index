@@ -1,5 +1,6 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
 // Allow disabling via env (support non-standard OTEL_ENABLED as well)
@@ -58,9 +59,23 @@ if (otelDisabled) {
   // Validate header format early (optional)
   void parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
+  // Prometheus（Pull型）を条件付きで有効化
+  const prometheusEnabled =
+    process.env.PROMETHEUS_ENABLED === "true" ||
+    (process.env.OTEL_METRICS_EXPORTER || "").split(",").includes("prometheus");
+
   const sdk = new NodeSDK({
-    // Exporterは環境変数 (OTEL_TRACES_EXPORTER 等) に委譲
+    // Exporterは環境変数 (OTEL_TRACES_EXPORTER 等) に委譲（トレース）
     instrumentations: [getNodeAutoInstrumentations()],
+    ...(prometheusEnabled && {
+      metricReader: new PrometheusExporter({
+        host: process.env.OTEL_EXPORTER_PROMETHEUS_HOST as any,
+        port: process.env.OTEL_EXPORTER_PROMETHEUS_PORT
+          ? Number(process.env.OTEL_EXPORTER_PROMETHEUS_PORT)
+          : undefined,
+        endpoint: process.env.OTEL_EXPORTER_PROMETHEUS_ENDPOINT as any,
+      }),
+    }),
   });
 
   // Start ASAP. NodeSDK@0.55 は start() が同期関数。
