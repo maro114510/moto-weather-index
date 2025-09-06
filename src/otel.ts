@@ -37,7 +37,16 @@ if (otelDisabled) {
       if (idx <= 0) return acc;
       const k = pair.slice(0, idx).trim();
       const v = pair.slice(idx + 1).trim();
-      if (k) acc[k] = decodeURIComponent(v);
+      if (k) {
+        // decodeURIComponent may throw on malformed percent-encoding.
+        // Only guard the decode call; on failure, fall back to the raw value
+        // so other headers remain usable. Do not rethrow.
+        try {
+          acc[k] = decodeURIComponent(v);
+        } catch {
+          acc[k] = v; // fallback: keep raw (undecoded) value
+        }
+      }
       return acc;
     }, {});
   }
