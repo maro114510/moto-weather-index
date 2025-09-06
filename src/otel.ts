@@ -1,6 +1,8 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
 // Allow disabling via env (support non-standard OTEL_ENABLED as well)
@@ -68,23 +70,41 @@ if (otelDisabled) {
   // Validate header format early (optional)
   void parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
-  // Prometheus（Pull型）を条件付きで有効化
+  // Metrics exporter selection (prefer explicit env)
+  const metricsExporters = (process.env.OTEL_METRICS_EXPORTER || "").split(",").map(s => s.trim()).filter(Boolean);
   const prometheusEnabled =
-    process.env.PROMETHEUS_ENABLED === "true" ||
-    (process.env.OTEL_METRICS_EXPORTER || "").split(",").includes("prometheus");
+    process.env.PROMETHEUS_ENABLED === "true" || metricsExporters.includes("prometheus");
+  const otlpMetricsEnabled = metricsExporters.includes("otlp");
+
+  // Build OTLP Metrics config when enabled (Grafana Cloud compatible)
+  const otlpBase = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
+  const metricsUrl = process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT || `${otlpBase.replace(/\/$/, "")}/v1/metrics`;
+  const commonHeaders = parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
+  const exportInterval = process.env.OTEL_METRIC_EXPORT_INTERVAL
+    ? Number(process.env.OTEL_METRIC_EXPORT_INTERVAL)
+    : undefined;
 
   const sdk = new NodeSDK({
     // Exporterは環境変数 (OTEL_TRACES_EXPORTER 等) に委譲（トレース）
     instrumentations: [getNodeAutoInstrumentations()],
-    ...(prometheusEnabled && {
-      metricReader: new PrometheusExporter({
-        host: process.env.OTEL_EXPORTER_PROMETHEUS_HOST as any,
-        port: process.env.OTEL_EXPORTER_PROMETHEUS_PORT
-          ? Number(process.env.OTEL_EXPORTER_PROMETHEUS_PORT)
-          : undefined,
-        endpoint: process.env.OTEL_EXPORTER_PROMETHEUS_ENDPOINT as any,
-      }),
-    }),
+    ...(prometheusEnabled
+      ? {
+          metricReader: new PrometheusExporter({
+            host: process.env.OTEL_EXPORTER_PROMETHEUS_HOST as any,
+            port: process.env.OTEL_EXPORTER_PROMETHEUS_PORT
+              ? Number(process.env.OTEL_EXPORTER_PROMETHEUS_PORT)
+              : undefined,
+            endpoint: process.env.OTEL_EXPORTER_PROMETHEUS_ENDPOINT as any,
+          }),
+        }
+      : otlpMetricsEnabled
+        ? {
+            metricReader: new PeriodicExportingMetricReader({
+              exporter: new OTLPMetricExporter({ url: metricsUrl, headers: commonHeaders }),
+              ...(exportInterval ? { exportIntervalMillis: exportInterval } : {}),
+            }),
+          }
+        : {}),
   });
 
   // Start ASAP. NodeSDK@0.55 は start() が同期関数。
