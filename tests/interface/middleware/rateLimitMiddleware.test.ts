@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { createRateLimitMiddleware } from "../../../src/interface/middleware/rateLimitMiddleware";
 import { EnforceRateLimitUseCase, RateLimitResult } from "../../../src/usecase/EnforceRateLimit";
 

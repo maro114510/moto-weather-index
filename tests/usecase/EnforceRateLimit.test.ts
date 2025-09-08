@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { RateLimitPolicy, RateLimitRepository, TokenBucket } from "../../src/domain/RateLimit";
 import { EnforceRateLimitUseCase, RateLimitResult } from "../../src/usecase/EnforceRateLimit";
-import { TokenBucket, RateLimitPolicy, RateLimitRepository } from "../../src/domain/RateLimit";
 
 class MockRateLimitRepository implements RateLimitRepository {
   private storage = new Map<string, TokenBucket>();

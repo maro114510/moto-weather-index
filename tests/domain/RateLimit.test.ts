@@ -1,5 +1,5 @@
-import { describe, test, expect } from "bun:test";
-import { TokenBucket, RateLimitPolicy, ClientIdentity } from "../../src/domain/RateLimit";
+import { describe, expect, test } from "bun:test";
+import { ClientIdentity, RateLimitPolicy, TokenBucket } from "../../src/domain/RateLimit";
 
 describe("TokenBucket", () => {
   test("should create bucket with full capacity", () => {
