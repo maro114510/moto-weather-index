@@ -8,6 +8,10 @@ updates:
     open-pull-requests-limit: 5
     assignees:
       - "maro114510"
+    groups:
+      opentelemetry:
+        patterns:
+          - "@opentelemetry/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
