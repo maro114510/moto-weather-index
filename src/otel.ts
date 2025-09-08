@@ -1,7 +1,18 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
+// Logs (OTLP/HTTP)
+import { logs as logsAPI } from "@opentelemetry/api-logs";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
+// Bun/NodeのCJS/ESM差異でnamed exportが解決できない環境があるため
+// 名前空間importに変更して互換性を確保する
+import * as resources from "@opentelemetry/resources";
+import {
+  BatchLogRecordProcessor,
+  ConsoleLogRecordExporter,
+  LoggerProvider,
+} from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
@@ -84,9 +95,66 @@ if (otelDisabled) {
     ? Number(process.env.OTEL_METRIC_EXPORT_INTERVAL)
     : undefined;
 
+  // Logs exporter selection (explicit only; default is disabled)
+  const logsExporters = (process.env.OTEL_LOGS_EXPORTER || "").split(",").map(s => s.trim()).filter(Boolean);
+  const otlpLogsEnabled = logsExporters.includes("otlp");
+  const consoleLogsEnabled = logsExporters.includes("console");
+
+  // Initialize Logs pipeline before SDK.start() so console instrumentation sees the provider
+  let logProvider: LoggerProvider | undefined;
+  if (otlpLogsEnabled || consoleLogsEnabled) {
+    // Align Logs resource with env-provided attributes (service.name, etc.).
+    // Note: NodeSDK applies env detectors to Traces/Metrics; we mirror the
+    // important bits here for Logs without adding detector deps.
+    const attrsRaw = process.env.OTEL_RESOURCE_ATTRIBUTES || "";
+    const envResourceAttrs = parseHeaders(attrsRaw);
+    const resourceFromEnv = resources.resourceFromAttributes(envResourceAttrs);
+
+    // Fallback service.name if not provided via env; keep stable for local dev
+    const defaultServiceName = process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || "moto-weather-index";
+    const resource = resourceFromEnv.merge(
+      resources.resourceFromAttributes({
+        "service.name": (resourceFromEnv.attributes["service.name"] as string) || defaultServiceName,
+      }),
+    );
+
+    logProvider = new LoggerProvider({ resource });
+    if (otlpLogsEnabled) {
+      const logsUrl = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || `${otlpBase.replace(/\/$/, "")}/v1/logs`;
+      logProvider.addLogRecordProcessor(
+        new BatchLogRecordProcessor(
+          new OTLPLogExporter({ url: logsUrl, headers: commonHeaders }),
+        ),
+      );
+      // eslint-disable-next-line no-console
+      console.info("[otel] logs exporter enabled: otlp", {
+        url: logsUrl,
+        headers: Object.keys(commonHeaders ?? {}),
+        resourceAttrs: resource.attributes,
+      });
+    }
+    if (consoleLogsEnabled) {
+      logProvider.addLogRecordProcessor(
+        new BatchLogRecordProcessor(new ConsoleLogRecordExporter()),
+      );
+      // eslint-disable-next-line no-console
+      console.info("[otel] logs exporter enabled: console");
+    }
+    logsAPI.setGlobalLoggerProvider(logProvider);
+  }
+  else {
+    // eslint-disable-next-line no-console
+    console.info("[otel] logs exporter disabled (set OTEL_LOGS_EXPORTER=otlp|console to enable)");
+  }
+
   const sdk = new NodeSDK({
     // Exporterは環境変数 (OTEL_TRACES_EXPORTER 等) に委譲（トレース）
-    instrumentations: [getNodeAutoInstrumentations()],
+    instrumentations: [
+      getNodeAutoInstrumentations({
+        // Ensure console logs are captured as LogRecords (for OTLP Logs)
+        "@opentelemetry/instrumentation-console": { enabled: true } as any,
+      }),
+    ],
     ...(prometheusEnabled
       ? {
           metricReader: new PrometheusExporter({
@@ -116,7 +184,10 @@ if (otelDisabled) {
   }
 
   // Ensure graceful shutdown on process end
-  process.on("SIGTERM", () => {
-    sdk.shutdown().finally(() => process.exit(0));
+  process.once("SIGTERM", () => {
+    Promise.all([
+      sdk.shutdown().catch(() => undefined),
+      logProvider?.shutdown?.().catch(() => undefined),
+    ]).finally(() => process.exit(0));
   });
 }
