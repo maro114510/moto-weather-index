@@ -77,6 +77,16 @@ Batch operations require HMAC-SHA256 authentication:
 - Headers: `X-Touring-Auth` (signature), `X-Timestamp` (ISO 8601)
 - Secret: Environment variable `BATCH_SECRET`
 
+### Rate Limiting System (Feature 002-kv)
+Token bucket rate limiting protects API endpoints from abuse:
+- **Per-IP Limit**: 10 requests per minute (burst capacity: 10 tokens)
+- **Global Limit**: 100 requests per minute system-wide
+- **Client ID**: IP address from `CF-Connecting-IP` header
+- **Storage**: Cloudflare KV (`RATE_LIMIT_KV` binding) with 5-minute TTL
+- **Error Response**: HTTP 429 with `Retry-After` header
+- **Failure Mode**: Fail-open (allow requests when KV unavailable)
+- **Middleware**: Applied globally before authentication, after logging
+
 ### Data Flow Architecture
 1. **Weather Data**: Open-Meteo API → Repository → UseCase
 2. **Batch Processing**: Fetch weather for date ranges → Calculate indices → Store in D1
@@ -113,7 +123,7 @@ Batch operations require HMAC-SHA256 authentication:
 - **Database Errors**: Graceful degradation with detailed logging
 
 ### Environment Configuration
-- **Cloudflare Workers**: `wrangler.toml` defines cron, D1, KV bindings
+- **Cloudflare Workers**: `wrangler.toml` defines cron, D1, KV bindings (including `RATE_LIMIT_KV`)
 - **Environment Variables**: `LOG_LEVEL`, `BATCH_SECRET`, `BATCH_START_DATE` (optional)
 - **Dual Runtime**: `src/index.ts` for local Node.js/Bun, `src/worker.ts` for Cloudflare Workers
 
