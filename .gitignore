@@ -51,4 +51,12 @@ bun.lock
 repomix-output.xml
 .serena
 
+### Spec-kit ###
+# Spec-kit related directories and files
+specs/
+memory/
+scripts/
+templates/
+test-rate-limit.js
+
 # End Of Ignore
