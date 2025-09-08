@@ -1,5 +1,6 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { createRateLimitMiddlewareWithKV } from "../di/container";
 import { healthCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
@@ -26,6 +27,13 @@ export const app = new OpenAPIHono();
 // Apply global middleware
 app.use("*", corsMiddleware);
 app.use("*", loggingMiddleware);
+// Rate limiting middleware (before auth, after logging)
+app.use("*", (c, next) => {
+  if (c.env.RATE_LIMIT_KV) {
+    return createRateLimitMiddlewareWithKV(c.env.RATE_LIMIT_KV)(c, next);
+  }
+  return next(); // Skip rate limiting if KV not available (development)
+});
 app.use("*", errorHandlingMiddleware);
 
 // Register OpenAPI routes
