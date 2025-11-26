@@ -13,12 +13,17 @@ function isValidISODateTime(datetime: string): boolean {
   return isoDateTimeRegex.test(datetime);
 }
 
-// 外部APIキー未設定時はスキップ（安定化のため最小変更）
+// Integration tests hit external WeatherAPI; skip by default unless explicitly enabled to keep CI stable.
 const hasWeatherApiKey = !!(
   (typeof process !== "undefined" && process.env && process.env.WEATHERAPI_KEY) ||
   (typeof process !== "undefined" && process.env && process.env.WEATHER_API_KEY)
 );
-const describeIf = hasWeatherApiKey ? describe : describe.skip;
+const runWeatherApiTests =
+  hasWeatherApiKey &&
+  typeof process !== "undefined" &&
+  process.env &&
+  process.env.RUN_WEATHER_API_TESTS === "true";
+const describeIf = runWeatherApiTests ? describe : describe.skip;
 
 // Simple integration tests without mocking
 describeIf("WeatherApiWeatherRepository", () => {
