@@ -111,48 +111,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     lon: number,
     datetime: string,
   ): Promise<Weather> {
-    const cacheKey = this.generateCacheKey(lat, lon, datetime);
-    const context = {
-      operation: "get_weather",
-      provider: "WeatherAPI",
-      location: { lat, lon },
-      datetime,
-      cacheKey,
-    };
-
-    // Try cache first
-    if (this.kv) {
-      try {
-        const t0 = Date.now();
-        const cached = await this.kv.get(cacheKey, "json");
-        const dt = Date.now() - t0;
-        logger.cacheOperation("get", cacheKey, !!cached, { ...context, cacheDuration: dt });
-        if (cached) return cached as Weather;
-      } catch (err) {
-        logger.warn("Failed to read from KV cache", { ...context }, err as Error);
-      }
-    }
-
-    const weather = await this.fetchFromApi(lat, lon, datetime);
-
-    if (this.kv) {
-      try {
-        const t0 = Date.now();
-        await this.kv.put(cacheKey, JSON.stringify(weather), {
-          expirationTtl: this.cacheExpirationSeconds,
-        });
-        const dt = Date.now() - t0;
-        logger.cacheOperation("put", cacheKey, true, {
-          ...context,
-          cacheDuration: dt,
-          expirationTtl: this.cacheExpirationSeconds,
-        });
-      } catch (err) {
-        logger.warn("Failed to write to KV cache", { ...context }, err as Error);
-      }
-    }
-
-    return weather;
+    return this.fetchFromApi(lat, lon, datetime);
   }
 
   private async fetchFromApi(
