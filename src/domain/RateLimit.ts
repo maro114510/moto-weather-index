@@ -10,7 +10,7 @@ export class TokenBucket {
   private constructor(
     private tokens: number,
     private lastRefill: Date,
-    private readonly capacity: number
+    private readonly capacity: number,
   ) {
     this.validateInvariants();
   }
@@ -19,7 +19,11 @@ export class TokenBucket {
     return new TokenBucket(capacity, new Date(), capacity);
   }
 
-  static fromState(tokens: number, lastRefill: Date, capacity: number): TokenBucket {
+  static fromState(
+    tokens: number,
+    lastRefill: Date,
+    capacity: number,
+  ): TokenBucket {
     return new TokenBucket(tokens, lastRefill, capacity);
   }
 
@@ -32,20 +36,26 @@ export class TokenBucket {
   refill(policy: RateLimitPolicy, currentTime: Date = new Date()): void {
     const timeDelta = currentTime.getTime() - this.lastRefill.getTime();
     const tokensToAdd = Math.floor(timeDelta / policy.refillIntervalMs);
-    
+
     if (tokensToAdd > 0) {
       this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
       this.lastRefill = currentTime;
     }
   }
 
-  get availableTokens(): number { return this.tokens; }
-  get bucketCapacity(): number { return this.capacity; }
-  get lastRefillTime(): Date { return new Date(this.lastRefill); }
+  get availableTokens(): number {
+    return this.tokens;
+  }
+  get bucketCapacity(): number {
+    return this.capacity;
+  }
+  get lastRefillTime(): Date {
+    return new Date(this.lastRefill);
+  }
 
   private validateInvariants(): void {
     if (this.tokens < 0 || this.tokens > this.capacity) {
-      throw new Error('TokenBucket invariant violation: invalid token count');
+      throw new Error("TokenBucket invariant violation: invalid token count");
     }
   }
 
@@ -53,7 +63,7 @@ export class TokenBucket {
     return {
       tokens: this.tokens,
       lastRefill: this.lastRefill.getTime(),
-      capacity: this.capacity
+      capacity: this.capacity,
     };
   }
 }
@@ -62,15 +72,18 @@ export class RateLimitPolicy {
   private constructor(
     public readonly requestsPerMinute: number,
     public readonly bucketCapacity: number,
-    public readonly refillIntervalMs: number
+    public readonly refillIntervalMs: number,
   ) {
     this.validatePolicy();
   }
 
-  static create(requestsPerMinute: number, bucketCapacity?: number): RateLimitPolicy {
+  static create(
+    requestsPerMinute: number,
+    bucketCapacity?: number,
+  ): RateLimitPolicy {
     const capacity = bucketCapacity ?? requestsPerMinute;
     const refillInterval = (60 * 1000) / requestsPerMinute;
-    
+
     return new RateLimitPolicy(requestsPerMinute, capacity, refillInterval);
   }
 
@@ -80,10 +93,12 @@ export class RateLimitPolicy {
 
   private validatePolicy(): void {
     if (this.requestsPerMinute <= 0 || this.bucketCapacity <= 0) {
-      throw new Error('Rate limit policy must have positive values');
+      throw new Error("Rate limit policy must have positive values");
     }
     if (this.bucketCapacity < this.requestsPerMinute) {
-      throw new Error('Bucket capacity should be >= requests per minute for burst handling');
+      throw new Error(
+        "Bucket capacity should be >= requests per minute for burst handling",
+      );
     }
   }
 
@@ -95,7 +110,7 @@ export class RateLimitPolicy {
 export class ClientIdentity {
   private constructor(
     public readonly normalizedIP: string,
-    public readonly keyHash: string
+    public readonly keyHash: string,
   ) {}
 
   static async fromIP(rawIP: string): Promise<ClientIdentity> {
@@ -106,15 +121,18 @@ export class ClientIdentity {
   }
 
   private static normalizeIP(ip: string): string {
-    return ip.split(':')[0].toLowerCase().trim();
+    return ip.split(":")[0].toLowerCase().trim();
   }
 
   private static async generateKeyHash(ip: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(ip);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+    return hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .substring(0, 16);
   }
 
   get kvKey(): string {
