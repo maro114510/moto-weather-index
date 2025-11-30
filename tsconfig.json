@@ -11,8 +11,7 @@
     "strict": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
-    "libReplacement": true
+    "noEmit": true
   },
   "include": [
     "src/**/*"

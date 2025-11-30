@@ -72,23 +72,15 @@ function parseAndClampPrecipitationProbability(value: unknown, fieldName: string
 }
 
 export class WeatherApiWeatherRepository implements WeatherRepository {
-  private kv?: KVNamespace;
   private readonly apiKey?: string;
-  private readonly cacheExpirationSeconds =
-    APP_CONFIG.CACHE_EXPIRATION_HOURS * 60 * 60;
 
   constructor(kv?: KVNamespace, apiKey?: string) {
-    this.kv = kv;
     this.apiKey = apiKey;
     logger.info("WeatherApiWeatherRepository initialized", {
       operation: "repository_init",
       cacheEnabled: !!kv,
       cacheExpirationHours: APP_CONFIG.CACHE_EXPIRATION_HOURS,
     });
-  }
-
-  private generateCacheKey(lat: number, lon: number, datetime: string): string {
-    return `weather:${lat}:${lon}:${datetime}`;
   }
 
   private getApiKey(): string {
@@ -334,11 +326,11 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     endDate: string,
   ): Promise<Weather[]> {
     // Build an array of dates inclusively
-    const start = new Date(startDate + "T00:00:00Z");
-    const end = new Date(endDate + "T00:00:00Z");
+    const start = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
 
     // Validate that both dates are valid
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       throw new Error("Invalid date range for getWeatherBatch");
     }
 

@@ -99,9 +99,9 @@ export class ClientIdentity {
   ) {}
 
   static async fromIP(rawIP: string): Promise<ClientIdentity> {
-    const normalized = this.normalizeIP(rawIP);
-    const keyHash = await this.generateKeyHash(normalized);
-    
+    const normalized = ClientIdentity.normalizeIP(rawIP);
+    const keyHash = await ClientIdentity.generateKeyHash(normalized);
+
     return new ClientIdentity(normalized, keyHash);
   }
 

@@ -1,6 +1,6 @@
 // Infrastructure Layer - KV Storage Implementation
 
-import { RateLimitRepository, TokenBucket, TokenBucketState } from "../domain/RateLimit";
+import { type RateLimitRepository, TokenBucket, type TokenBucketState } from "../domain/RateLimit";
 
 export class KVRateLimitRepository implements RateLimitRepository {
   constructor(
