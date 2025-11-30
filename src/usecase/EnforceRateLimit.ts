@@ -45,7 +45,6 @@ export class EnforceRateLimitUseCase {
         tokensRemaining: bucket.availableTokens,
         retryAfterMs: allowed ? 0 : this.policy.calculateRefillTime(1),
       };
-
     } catch (_error) {
       // Fail-open: allow request on any error
       return { allowed: true, tokensRemaining: 0, retryAfterMs: 0 };

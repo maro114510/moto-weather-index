@@ -35,7 +35,10 @@ export async function scheduledHandler(
     const maxRetries = 3;
 
     // Create repositories and usecase
-    const weatherRepo = createWeatherRepository(env.OPEN_METEO_CACHE, env.WEATHERAPI_KEY);
+    const weatherRepo = createWeatherRepository(
+      env.OPEN_METEO_CACHE,
+      env.WEATHERAPI_KEY,
+    );
     const touringIndexRepo = createTouringIndexRepository(env.DB);
     const batchUsecase = createBatchCalculateTouringIndexUsecase(
       weatherRepo,

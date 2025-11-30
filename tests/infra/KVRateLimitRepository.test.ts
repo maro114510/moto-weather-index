@@ -9,7 +9,11 @@ class MockKVNamespace implements KVNamespace {
     return this.storage.get(key) || null;
   }
 
-  async put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void> {
+  async put(
+    key: string,
+    value: string,
+    _options?: { expirationTtl?: number },
+  ): Promise<void> {
     this.storage.set(key, value);
   }
 
@@ -43,7 +47,7 @@ describe("KVRateLimitRepository", () => {
   test("should save and retrieve bucket", async () => {
     const bucket = TokenBucket.create(10);
     await repository.saveBucket("test-key", bucket);
-    
+
     const retrieved = await repository.getBucket("test-key");
     expect(retrieved).not.toBeNull();
     expect(retrieved?.availableTokens).toBe(10);
@@ -52,24 +56,32 @@ describe("KVRateLimitRepository", () => {
 
   test("should handle invalid JSON gracefully", async () => {
     await mockKV.put("test-key", "invalid-json");
-    
+
     const bucket = await repository.getBucket("test-key");
     expect(bucket).toBeNull();
   });
 
   test("should handle KV errors gracefully", async () => {
     const failingKV: KVNamespace = {
-      get: async () => { throw new Error("KV error"); },
-      put: async () => { throw new Error("KV error"); },
-      delete: async () => { throw new Error("KV error"); },
-      list: async () => { throw new Error("KV error"); }
+      get: async () => {
+        throw new Error("KV error");
+      },
+      put: async () => {
+        throw new Error("KV error");
+      },
+      delete: async () => {
+        throw new Error("KV error");
+      },
+      list: async () => {
+        throw new Error("KV error");
+      },
     };
 
     const failingRepo = new KVRateLimitRepository(failingKV, 300);
-    
+
     const bucket = await failingRepo.getBucket("test-key");
     expect(bucket).toBeNull();
-    
+
     // Should not throw
     await failingRepo.saveBucket("test-key", TokenBucket.create(10));
   });

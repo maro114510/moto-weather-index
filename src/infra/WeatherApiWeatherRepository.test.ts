@@ -15,7 +15,9 @@ function isValidISODateTime(datetime: string): boolean {
 
 // Integration tests hit external WeatherAPI; skip by default unless explicitly enabled to keep CI stable.
 const hasWeatherApiKey = !!(
-  (typeof process !== "undefined" && process.env && process.env.WEATHERAPI_KEY) ||
+  (typeof process !== "undefined" &&
+    process.env &&
+    process.env.WEATHERAPI_KEY) ||
   (typeof process !== "undefined" && process.env && process.env.WEATHER_API_KEY)
 );
 const runWeatherApiTests =

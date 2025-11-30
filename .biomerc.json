@@ -6,7 +6,7 @@
   "linter": {
     "enabled": true,
     "includes": [
-      "src/**/*"
+      "**/*.{ts,tsx}"
     ],
     "rules": {
       "recommended": true,
@@ -27,7 +27,7 @@
   "formatter": {
     "enabled": true,
     "includes": [
-      "src/**/*"
+      "**/*.{ts,tsx}"
     ],
     "indentStyle": "space",
     "indentWidth": 2

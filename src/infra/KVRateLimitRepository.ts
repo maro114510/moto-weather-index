@@ -1,8 +1,8 @@
 // Infrastructure Layer - KV Storage Implementation
 
 import {
-  TokenBucket,
   type RateLimitRepository,
+  TokenBucket,
   type TokenBucketState,
 } from "../domain/RateLimit";
 
