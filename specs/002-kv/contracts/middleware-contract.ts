@@ -1,6 +1,6 @@
 /**
  * Rate Limiting Clean Architecture Contracts
- * 
+ *
  * This file defines the interfaces for each layer in the Clean Architecture
  * implementation of the rate limiting feature.
  */
@@ -12,7 +12,7 @@ export interface TokenBucket {
   readonly availableTokens: number;
   readonly bucketCapacity: number;
   readonly lastRefillTime: Date;
-  
+
   consumeToken(): boolean;
   refill(policy: RateLimitPolicy, currentTime?: Date): void;
   toState(): TokenBucketState;
@@ -22,7 +22,7 @@ export interface RateLimitPolicy {
   readonly requestsPerMinute: number;
   readonly bucketCapacity: number;
   readonly refillIntervalMs: number;
-  
+
   calculateRefillTime(tokensNeeded: number): number;
 }
 
@@ -56,9 +56,10 @@ export interface TokenBucketState {
 }
 
 // Interface Layer Contracts
-export interface MiddlewareHandler {
-  (c: Context, next: Next): Promise<Response | void>;
-}
+export type MiddlewareHandler = (
+  c: Context,
+  next: Next,
+) => Promise<Response | undefined>;
 
 export interface Environment {
   RATE_LIMIT_KV: KVNamespace;
@@ -68,18 +69,18 @@ export interface Environment {
 export interface RateLimitErrorResponse {
   error: string;
   message: string;
-  retryAfter: number;    // Seconds
+  retryAfter: number; // Seconds
   limit: number;
   remaining: number;
-  resetTime: number;     // Unix timestamp
+  resetTime: number; // Unix timestamp
 }
 
 // Dependency Injection Contracts
 export interface DIContainer {
   createRateLimitRepository(kv: KVNamespace): RateLimitRepository;
   createEnforceRateLimitUseCase(
-    repository: RateLimitRepository, 
-    policy?: RateLimitPolicy
+    repository: RateLimitRepository,
+    policy?: RateLimitPolicy,
   ): EnforceRateLimitUseCase;
   createRateLimitMiddleware(kv: KVNamespace): MiddlewareHandler;
 }
@@ -90,13 +91,15 @@ export interface TestContracts {
   createTestTokenBucket(overrides?: Partial<TokenBucketState>): TokenBucket;
   createTestPolicy(requestsPerMinute?: number): RateLimitPolicy;
   createTestClientIdentity(ip?: string): Promise<ClientIdentity>;
-  
-  // Use case testing  
-  createMockRepository(initialData?: Map<string, TokenBucket>): RateLimitRepository;
-  
+
+  // Use case testing
+  createMockRepository(
+    initialData?: Map<string, TokenBucket>,
+  ): RateLimitRepository;
+
   // Infrastructure testing
   createMockKV(initialData?: Record<string, string>): KVNamespace;
-  
+
   // Integration testing
   createTestMiddleware(kv: KVNamespace): MiddlewareHandler;
   createTestContext(ip: string, headers?: Record<string, string>): Context;
@@ -105,7 +108,11 @@ export interface TestContracts {
 // Test helper interfaces
 export interface MockKVNamespace {
   get: (key: string) => Promise<string | null>;
-  put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
+  put: (
+    key: string,
+    value: string,
+    options?: { expirationTtl?: number },
+  ) => Promise<void>;
 }
 
 export interface TestScenario {

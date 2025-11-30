@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { ClientIdentity, RateLimitPolicy, TokenBucket } from "../../src/domain/RateLimit";
+import {
+  ClientIdentity,
+  RateLimitPolicy,
+  TokenBucket,
+} from "../../src/domain/RateLimit";
 
 describe("TokenBucket", () => {
   test("should create bucket with full capacity", () => {
@@ -26,7 +30,7 @@ describe("TokenBucket", () => {
     const policy = RateLimitPolicy.create(10); // 6000ms per token
     const pastTime = new Date(Date.now() - 12000); // 2 tokens worth
     const bucket = TokenBucket.fromState(5, pastTime, 10);
-    
+
     bucket.refill(policy);
     expect(bucket.availableTokens).toBe(7);
   });
@@ -35,7 +39,7 @@ describe("TokenBucket", () => {
     const policy = RateLimitPolicy.create(10);
     const pastTime = new Date(Date.now() - 60000); // 10+ tokens worth
     const bucket = TokenBucket.fromState(8, pastTime, 10);
-    
+
     bucket.refill(policy);
     expect(bucket.availableTokens).toBe(10);
   });

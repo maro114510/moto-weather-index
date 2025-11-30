@@ -82,21 +82,31 @@ if (otelDisabled) {
   void parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
   // Metrics exporter selection (prefer explicit env)
-  const metricsExporters = (process.env.OTEL_METRICS_EXPORTER || "").split(",").map(s => s.trim()).filter(Boolean);
+  const metricsExporters = (process.env.OTEL_METRICS_EXPORTER || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const prometheusEnabled =
-    process.env.PROMETHEUS_ENABLED === "true" || metricsExporters.includes("prometheus");
+    process.env.PROMETHEUS_ENABLED === "true" ||
+    metricsExporters.includes("prometheus");
   const otlpMetricsEnabled = metricsExporters.includes("otlp");
 
   // Build OTLP Metrics config when enabled (Grafana Cloud compatible)
-  const otlpBase = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
-  const metricsUrl = process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT || `${otlpBase.replace(/\/$/, "")}/v1/metrics`;
+  const otlpBase =
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
+  const metricsUrl =
+    process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT ||
+    `${otlpBase.replace(/\/$/, "")}/v1/metrics`;
   const commonHeaders = parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
   const exportInterval = process.env.OTEL_METRIC_EXPORT_INTERVAL
     ? Number(process.env.OTEL_METRIC_EXPORT_INTERVAL)
     : undefined;
 
   // Logs exporter selection (explicit only; default is disabled)
-  const logsExporters = (process.env.OTEL_LOGS_EXPORTER || "").split(",").map(s => s.trim()).filter(Boolean);
+  const logsExporters = (process.env.OTEL_LOGS_EXPORTER || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const otlpLogsEnabled = logsExporters.includes("otlp");
   const consoleLogsEnabled = logsExporters.includes("console");
 
@@ -111,16 +121,23 @@ if (otelDisabled) {
     const resourceFromEnv = resources.resourceFromAttributes(envResourceAttrs);
 
     // Fallback service.name if not provided via env; keep stable for local dev
-    const defaultServiceName = process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || "moto-weather-index";
+    const defaultServiceName =
+      process.env.OTEL_SERVICE_NAME ||
+      process.env.npm_package_name ||
+      "moto-weather-index";
     const resource = resourceFromEnv.merge(
       resources.resourceFromAttributes({
-        "service.name": (resourceFromEnv.attributes["service.name"] as string) || defaultServiceName,
+        "service.name":
+          (resourceFromEnv.attributes["service.name"] as string) ||
+          defaultServiceName,
       }),
     );
 
     logProvider = new LoggerProvider({ resource });
     if (otlpLogsEnabled) {
-      const logsUrl = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || `${otlpBase.replace(/\/$/, "")}/v1/logs`;
+      const logsUrl =
+        process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ||
+        `${otlpBase.replace(/\/$/, "")}/v1/logs`;
       logProvider.addLogRecordProcessor(
         new BatchLogRecordProcessor(
           new OTLPLogExporter({ url: logsUrl, headers: commonHeaders }),
@@ -141,10 +158,11 @@ if (otelDisabled) {
       console.info("[otel] logs exporter enabled: console");
     }
     logsAPI.setGlobalLoggerProvider(logProvider);
-  }
-  else {
+  } else {
     // eslint-disable-next-line no-console
-    console.info("[otel] logs exporter disabled (set OTEL_LOGS_EXPORTER=otlp|console to enable)");
+    console.info(
+      "[otel] logs exporter disabled (set OTEL_LOGS_EXPORTER=otlp|console to enable)",
+    );
   }
 
   const sdk = new NodeSDK({
@@ -168,8 +186,13 @@ if (otelDisabled) {
       : otlpMetricsEnabled
         ? {
             metricReader: new PeriodicExportingMetricReader({
-              exporter: new OTLPMetricExporter({ url: metricsUrl, headers: commonHeaders }),
-              ...(exportInterval ? { exportIntervalMillis: exportInterval } : {}),
+              exporter: new OTLPMetricExporter({
+                url: metricsUrl,
+                headers: commonHeaders,
+              }),
+              ...(exportInterval
+                ? { exportIntervalMillis: exportInterval }
+                : {}),
             }),
           }
         : {}),
