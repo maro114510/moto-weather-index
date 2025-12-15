@@ -7,7 +7,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.67.2",
     "@opentelemetry/sdk-node": "^0.208.0",
     "@opentelemetry/exporter-prometheus": "^0.208.0",
-    "@types/node": "^24.0.3",
+    "@types/node": "^25.0.2",
     "axios": "^1.9.0",
     "hono": "^4.7.11",
     "ioredis": "^5.6.1",
