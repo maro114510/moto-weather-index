@@ -30,6 +30,17 @@ tasks:
     cmds:
       - bun test
 
+  ci:post-check:
+    desc: "Run CI-equivalent checks before push/PR update"
+    cmds:
+      - bunx biome check --config-path .biomerc.json .
+      - |
+        if [ -n "${WEATHERAPI_KEY:-}" ]; then
+          bun test
+        else
+          echo "WEATHERAPI_KEY is not set. Skipping tests to mirror CI condition."
+        fi
+
   prepare:
     desc: "Install dependencies"
     cmds:

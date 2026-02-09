@@ -82,6 +82,19 @@ export const weatherRoute = createRoute({
         },
       },
     },
+    404: {
+      description: "Weather data is unavailable for specified coordinates/date",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string().openapi({
+              example:
+                "Weather data is unavailable for the specified coordinates/date",
+            }),
+          }),
+        },
+      },
+    },
   },
 });
 
@@ -142,6 +155,19 @@ export const touringIndexRoute = createRoute({
             error: z
               .string()
               .openapi({ example: "lat must be between -90 and 90" }),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Weather data is unavailable for specified coordinates/date",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string().openapi({
+              example:
+                "Weather data is unavailable for the specified coordinates/date",
+            }),
           }),
         },
       },

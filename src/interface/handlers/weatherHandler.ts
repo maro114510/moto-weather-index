@@ -4,6 +4,7 @@ import { z } from "zod";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import { getWeatherSchema } from "../../dao/weatherSchemas";
 import { createWeatherRepository } from "../../di/container";
+import { HttpError } from "../../domain/HttpError";
 import { logger } from "../../utils/logger";
 
 /**
@@ -59,6 +60,21 @@ export async function getWeather(c: Context) {
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
       return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    if (error instanceof HttpError) {
+      logger.warn("Weather request failed with controlled error", {
+        ...requestContext,
+        operation: "weather_error",
+        statusCode: error.status,
+        errorCode: error.code,
+        errorMessage: error.message,
+        details: error.details,
+      });
+      return c.json(
+        { error: error.message, requestId: c.get("requestId") },
+        error.status as any,
+      );
     }
     throw error;
   }
