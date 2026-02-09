@@ -1,5 +1,8 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { RateLimitPolicy } from "../domain/RateLimit";
+import { KVRateLimitRepository } from "../infra/KVRateLimitRepository";
+import { EnforceRateLimitUseCase } from "../usecase/EnforceRateLimit";
 import { healthCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
@@ -12,6 +15,7 @@ import { authMiddleware } from "./middleware/auth";
 import { corsMiddleware } from "./middleware/cors";
 import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
+import { createRateLimitMiddleware } from "./middleware/rateLimitMiddleware";
 import {
   healthRoute,
   prefectureListRoute,
@@ -27,6 +31,18 @@ export const app = new OpenAPIHono();
 app.use("*", corsMiddleware);
 app.use("*", loggingMiddleware);
 app.use("*", errorHandlingMiddleware);
+app.use("/api/v1/*", async (c, next) => {
+  const kv = c.env?.RATE_LIMIT_KV as KVNamespace | undefined;
+  if (!kv) {
+    return next();
+  }
+
+  const repository = new KVRateLimitRepository(kv);
+  const policy = RateLimitPolicy.standardIPPolicy();
+  const useCase = new EnforceRateLimitUseCase(repository, policy);
+  const middleware = createRateLimitMiddleware(useCase);
+  return middleware(c, next);
+});
 
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);
