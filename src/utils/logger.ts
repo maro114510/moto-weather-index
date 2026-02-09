@@ -1,3 +1,4 @@
+import stringify from "safe-stable-stringify";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { sanitizeLogData } from "./logSanitizer";
 
@@ -88,7 +89,7 @@ class Logger {
   }
 
   private output(logEntry: LogEntry) {
-    const logString = JSON.stringify(logEntry);
+    const logString = stringify(logEntry);
 
     switch (LogLevel[logEntry.level as keyof typeof LogLevel]) {
       case LogLevel.ERROR:

@@ -1,41 +1,39 @@
+import stringify from "safe-stable-stringify";
+
+const REDACTED = "***";
 const SENSITIVE_KEY_PATTERN =
   /(password|secret|token|authorization|api[_-]?key|cookie|signature|xtouringauth|x[_-]?touring[_-]?auth)/i;
-
 const QUERY_SENSITIVE_PATTERN =
   /([?&])(password|secret|token|authorization|api[_-]?key|signature)=([^&]*)/gi;
 
-export function sanitizeLogData<T>(value: T): T {
-  return sanitize(value, new WeakSet()) as T;
+function normalizeKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }
 
-function sanitize(value: unknown, seen: WeakSet<object>): unknown {
-  if (typeof value === "string") {
-    return value.replace(QUERY_SENSITIVE_PATTERN, "$1$2=***");
-  }
+function sanitizeString(value: string): string {
+  return value.replace(QUERY_SENSITIVE_PATTERN, "$1$2=***");
+}
 
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitize(item, seen));
-  }
+export function sanitizeLogData<T>(value: T): T {
+  const serialized = stringify(value, (key, innerValue) => {
+    if (
+      key &&
+      SENSITIVE_KEY_PATTERN.test(normalizeKey(key)) &&
+      innerValue !== undefined
+    ) {
+      return REDACTED;
+    }
 
-  if (!value || typeof value !== "object") {
+    if (typeof innerValue === "string") {
+      return sanitizeString(innerValue);
+    }
+
+    return innerValue;
+  });
+
+  if (serialized === undefined) {
     return value;
   }
 
-  if (seen.has(value)) {
-    return "[Circular]";
-  }
-  seen.add(value);
-
-  const out: Record<string, unknown> = {};
-  for (const [key, innerValue] of Object.entries(
-    value as Record<string, unknown>,
-  )) {
-    const normalizedKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-    if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {
-      out[key] = "***";
-      continue;
-    }
-    out[key] = sanitize(innerValue, seen);
-  }
-  return out;
+  return JSON.parse(serialized) as T;
 }

@@ -27,4 +27,33 @@ describe("sanitizeLogData", () => {
     expect(output).toContain("password=***");
     expect(output).toContain("normal=visible");
   });
+
+  test("handles circular structures while redacting sensitive keys", () => {
+    const input: Record<string, unknown> = {
+      token: "abc123",
+      nested: {
+        apiKey: "secret-key",
+      },
+    };
+    input.self = input;
+
+    const output = sanitizeLogData(input) as Record<string, unknown>;
+    expect(output.token).toBe("***");
+    expect((output.nested as Record<string, unknown>).apiKey).toBe("***");
+    expect(output.self).toBe("[Circular]");
+  });
+
+  test("redacts sensitive keys inside arrays", () => {
+    const input = {
+      users: [
+        { name: "alice", authorization: "Bearer aaa" },
+        { name: "bob", password: "pw" },
+      ],
+    };
+
+    const output = sanitizeLogData(input);
+    expect(output.users[0].authorization).toBe("***");
+    expect(output.users[1].password).toBe("***");
+    expect(output.users[0].name).toBe("alice");
+  });
 });
