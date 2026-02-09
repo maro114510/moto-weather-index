@@ -290,15 +290,19 @@ Execute batch calculation for all Japanese prefectures for multiple days. This e
 **Authentication Example:**
 
 ```bash
-# Calculate HMAC signature
+# Calculate HMAC signature (hex)
 timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-signature=$(echo -n "$timestamp" | openssl dgst -sha256 -hmac "$BATCH_SECRET" -binary | base64)
+signature=$(echo -n "$timestamp" | openssl dgst -sha256 -hmac "$BATCH_SECRET" -hex | sed 's/^.* //')
 
 # Make authenticated request
 curl -X POST "https://moto-weather-index.stelzen.dev/api/v1/touring-index/batch?days=7" \
   -H "X-Touring-Auth: $signature" \
   -H "X-Timestamp: $timestamp"
 ```
+
+Notes:
+- `X-Touring-Auth` accepts both **hex** and **base64** HMAC-SHA256 signatures.
+- `X-Timestamp` must be within the allowed skew window (default: 5 minutes).
 
 ## 🛠️ Tech Stack
 
@@ -378,8 +382,12 @@ database_name = "moto-weather-db"
 #### Required Environment Variables
 
 - `BATCH_SECRET`: HMAC secret for batch endpoint authentication
+- `AUTH_MAX_TIME_SKEW_SECONDS`: Max allowed timestamp skew for batch auth (default: `300`)
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
 - `WEATHERAPI_KEY`: API key for WeatherAPI.com (required for weather fetching and tests)
+
+Development-only:
+- `SKIP_AUTH=true` can bypass batch authentication only when `NODE_ENV=development`.
 
 ### Local Development
 

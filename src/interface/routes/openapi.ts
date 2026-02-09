@@ -280,7 +280,7 @@ export const touringIndexBatchRoute = createRoute({
     "Start date can be specified as query parameter or environment variable (BATCH_START_DATE). " +
     "Start date must be within the last 7 days or up to 16 days in the future.",
   tags: ["Touring Index", "Batch Operations"],
-  security: [{ bearerAuth: [] }],
+  security: [{ TouringAuthSignature: [], TouringTimestamp: [] }],
   request: {
     query: z.object({
       days: z.string().optional().openapi({

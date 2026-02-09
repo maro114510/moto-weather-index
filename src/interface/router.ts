@@ -48,6 +48,22 @@ app.doc("/specification", {
     description:
       "API for calculating motorcycle touring weather index based on weather conditions",
   },
+  components: {
+    securitySchemes: {
+      TouringAuthSignature: {
+        type: "apiKey",
+        in: "header",
+        name: "X-Touring-Auth",
+        description: "HMAC-SHA256 signature (hex or base64)",
+      },
+      TouringTimestamp: {
+        type: "apiKey",
+        in: "header",
+        name: "X-Timestamp",
+        description: "ISO 8601 timestamp within allowed skew window",
+      },
+    },
+  },
   servers: [
     {
       url: "http://localhost:3000",
