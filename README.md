@@ -375,6 +375,19 @@ binding = "DB"
 database_name = "moto-weather-db"
 ```
 
+#### Rate Limiting Policy
+
+To reduce operational risk and avoid unnecessary KV pressure, this application
+does **not** enforce API rate limiting with Cloudflare KV in Worker code.
+
+Recommended controls:
+
+- Primary: [Cloudflare WAF Rate Limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/) at the edge
+- Optional: [Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) for endpoint-specific limits when needed
+
+This keeps throttling close to Cloudflare's edge controls and avoids per-request
+KV read/write amplification in the app layer.
+
 #### Required Environment Variables
 
 - `BATCH_SECRET`: HMAC secret for batch endpoint authentication
