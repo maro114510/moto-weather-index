@@ -1,6 +1,8 @@
 import type { AxiosError, AxiosResponse } from "axios";
 import axios from "axios";
 import { APP_CONFIG } from "../constants/appConfig";
+import { HTTP_STATUS } from "../constants/httpStatus";
+import { HttpError } from "../domain/HttpError";
 import type { Weather, WeatherCondition } from "../domain/Weather";
 import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
@@ -55,8 +57,13 @@ function parseAndClampPrecipitationProbability(
       field: fieldName,
       valueType: typeof value,
     });
-    throw new Error(
+    throw new HttpError(
+      HTTP_STATUS.BAD_GATEWAY,
       `Invalid WeatherAPI response: ${fieldName} must be number or string`,
+      {
+        code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+        details: { field: fieldName, valueType: typeof value },
+      },
     );
   }
 
@@ -66,8 +73,13 @@ function parseAndClampPrecipitationProbability(
       field: fieldName,
       value,
     });
-    throw new Error(
+    throw new HttpError(
+      HTTP_STATUS.BAD_GATEWAY,
       `Invalid WeatherAPI response: ${fieldName} is not a valid number`,
+      {
+        code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+        details: { field: fieldName, value },
+      },
     );
   }
 
@@ -275,12 +287,24 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       }
 
       if (!day) {
-        logger.error("Invalid WeatherAPI response structure", {
+        const noDataContext = {
           operation: "api_response_validation",
-          missing: "forecast.forecastday[0].day",
+          failurePoint: "day_data_not_found",
+          missing: "forecast.forecastday[].day",
           endpoint: isHistorical ? "history" : "forecast",
-        });
-        throw new Error("Invalid WeatherAPI response structure");
+          location: { lat, lon },
+          targetDate,
+          upstreamResponse: res.data,
+        };
+        logger.warn("WeatherAPI returned no day data for requested coordinates/date", noDataContext);
+        throw new HttpError(
+          HTTP_STATUS.NOT_FOUND,
+          "Weather data is unavailable for the specified coordinates/date",
+          {
+            code: "WEATHER_DATA_NOT_FOUND",
+            details: noDataContext,
+          },
+        );
       }
 
       // Validate required numeric fields; do not silently fallback
@@ -292,12 +316,25 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       ];
       for (const [name, value] of numericFields) {
         if (typeof value !== "number" || Number.isNaN(value)) {
-          logger.error("Invalid WeatherAPI response value", {
-            operation: "api_response_validation",
-            field: name,
-            valueType: typeof value,
-          });
-          throw new Error(`Invalid WeatherAPI response: ${name}`);
+          logger.error(
+            "Invalid WeatherAPI response value",
+            {
+              operation: "api_response_validation",
+              failurePoint: "numeric_field_validation",
+              field: name,
+              valueType: typeof value,
+              location: { lat, lon },
+              targetDate,
+            },
+          );
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            `Invalid WeatherAPI response: ${name}`,
+            {
+              code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+              details: { field: name, location: { lat, lon }, targetDate },
+            },
+          );
         }
       }
 
@@ -327,18 +364,77 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
 
       return weather;
     } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+
       if (axios.isAxiosError(error)) {
+        const upstreamCode = error.response?.data?.error?.code;
+        const upstreamMessage = error.response?.data?.error?.message;
+        const errorContext = {
+          operation: "api_request_error",
+          failurePoint: "weatherapi_request",
+          location: { lat, lon },
+          targetDate,
+          statusCode: error.response?.status,
+          statusText: error.response?.statusText,
+          upstreamCode,
+          upstreamMessage,
+          upstreamResponse: error.response?.data,
+          errorCode: error.code,
+          url,
+        };
+
         logger.error(
           "WeatherAPI request failed",
-          {
-            operation: "api_request_error",
-            statusCode: error.response?.status,
-            statusText: error.response?.statusText,
-            errorCode: error.code,
-            url,
-            targetDate,
-          },
+          errorContext,
           error,
+        );
+
+        if (error.response?.status === HTTP_STATUS.BAD_REQUEST && upstreamCode === 1006) {
+          throw new HttpError(
+            HTTP_STATUS.NOT_FOUND,
+            "Weather data is unavailable for the specified coordinates/date",
+            {
+              code: "WEATHER_DATA_NOT_FOUND",
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
+
+        if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            "Failed to retrieve valid weather data from upstream provider",
+            {
+              code: "WEATHER_UPSTREAM_CLIENT_ERROR",
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
+
+        if (error.code === "ECONNABORTED") {
+          throw new HttpError(
+            HTTP_STATUS.GATEWAY_TIMEOUT,
+            "Weather provider request timed out",
+            {
+              code: "WEATHER_UPSTREAM_TIMEOUT",
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
+
+        throw new HttpError(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Weather provider is unavailable",
+          {
+            code: "WEATHER_UPSTREAM_UNAVAILABLE",
+            details: errorContext,
+            cause: error,
+          },
         );
       }
       throw error;
