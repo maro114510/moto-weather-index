@@ -13,6 +13,7 @@ import {
   createTouringIndexRepository,
   createWeatherRepository,
 } from "../../di/container";
+import { HttpError } from "../../domain/HttpError";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 import { validateDateRange } from "../../utils/dateUtils";
@@ -87,6 +88,21 @@ export async function getTouringIndex(c: Context) {
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
       return c.json({ error: errorMessage }, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    if (error instanceof HttpError) {
+      logger.warn("Touring index request failed with controlled error", {
+        ...requestContext,
+        operation: "touring_index_error",
+        statusCode: error.status,
+        errorCode: error.code,
+        errorMessage: error.message,
+        details: error.details,
+      });
+      return c.json(
+        { error: error.message, requestId: c.get("requestId") },
+        error.status as any,
+      );
     }
     throw error;
   }
