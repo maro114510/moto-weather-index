@@ -296,7 +296,10 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           targetDate,
           upstreamResponse: res.data,
         };
-        logger.warn("WeatherAPI returned no day data for requested coordinates/date", noDataContext);
+        logger.warn(
+          "WeatherAPI returned no day data for requested coordinates/date",
+          noDataContext,
+        );
         throw new HttpError(
           HTTP_STATUS.NOT_FOUND,
           "Weather data is unavailable for the specified coordinates/date",
@@ -316,17 +319,14 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       ];
       for (const [name, value] of numericFields) {
         if (typeof value !== "number" || Number.isNaN(value)) {
-          logger.error(
-            "Invalid WeatherAPI response value",
-            {
-              operation: "api_response_validation",
-              failurePoint: "numeric_field_validation",
-              field: name,
-              valueType: typeof value,
-              location: { lat, lon },
-              targetDate,
-            },
-          );
+          logger.error("Invalid WeatherAPI response value", {
+            operation: "api_response_validation",
+            failurePoint: "numeric_field_validation",
+            field: name,
+            valueType: typeof value,
+            location: { lat, lon },
+            targetDate,
+          });
           throw new HttpError(
             HTTP_STATUS.BAD_GATEWAY,
             `Invalid WeatherAPI response: ${name}`,
@@ -385,13 +385,12 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           url,
         };
 
-        logger.error(
-          "WeatherAPI request failed",
-          errorContext,
-          error,
-        );
+        logger.error("WeatherAPI request failed", errorContext, error);
 
-        if (error.response?.status === HTTP_STATUS.BAD_REQUEST && upstreamCode === 1006) {
+        if (
+          error.response?.status === HTTP_STATUS.BAD_REQUEST &&
+          upstreamCode === 1006
+        ) {
           throw new HttpError(
             HTTP_STATUS.NOT_FOUND,
             "Weather data is unavailable for the specified coordinates/date",
@@ -403,7 +402,11 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           );
         }
 
-        if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
+        if (
+          error.response?.status &&
+          error.response.status >= 400 &&
+          error.response.status < 500
+        ) {
           throw new HttpError(
             HTTP_STATUS.BAD_GATEWAY,
             "Failed to retrieve valid weather data from upstream provider",

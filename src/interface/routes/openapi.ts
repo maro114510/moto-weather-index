@@ -88,7 +88,8 @@ export const weatherRoute = createRoute({
         "application/json": {
           schema: z.object({
             error: z.string().openapi({
-              example: "Weather data is unavailable for the specified coordinates/date",
+              example:
+                "Weather data is unavailable for the specified coordinates/date",
             }),
           }),
         },
@@ -164,7 +165,8 @@ export const touringIndexRoute = createRoute({
         "application/json": {
           schema: z.object({
             error: z.string().openapi({
-              example: "Weather data is unavailable for the specified coordinates/date",
+              example:
+                "Weather data is unavailable for the specified coordinates/date",
             }),
           }),
         },
