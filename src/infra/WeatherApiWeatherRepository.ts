@@ -1,6 +1,7 @@
 import type { AxiosError, AxiosResponse } from "axios";
 import axios from "axios";
 import { APP_CONFIG } from "../constants/appConfig";
+import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { Weather, WeatherCondition } from "../domain/Weather";
@@ -61,7 +62,7 @@ function parseAndClampPrecipitationProbability(
       HTTP_STATUS.BAD_GATEWAY,
       `Invalid WeatherAPI response: ${fieldName} must be number or string`,
       {
-        code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+        code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
         details: { field: fieldName, valueType: typeof value },
       },
     );
@@ -77,7 +78,7 @@ function parseAndClampPrecipitationProbability(
       HTTP_STATUS.BAD_GATEWAY,
       `Invalid WeatherAPI response: ${fieldName} is not a valid number`,
       {
-        code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+        code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
         details: { field: fieldName, value },
       },
     );
@@ -304,7 +305,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           HTTP_STATUS.NOT_FOUND,
           "Weather data is unavailable for the specified coordinates/date",
           {
-            code: "WEATHER_DATA_NOT_FOUND",
+            code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
             details: noDataContext,
           },
         );
@@ -331,7 +332,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
             HTTP_STATUS.BAD_GATEWAY,
             `Invalid WeatherAPI response: ${name}`,
             {
-              code: "WEATHER_UPSTREAM_INVALID_RESPONSE",
+              code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
               details: { field: name, location: { lat, lon }, targetDate },
             },
           );
@@ -395,7 +396,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
             HTTP_STATUS.NOT_FOUND,
             "Weather data is unavailable for the specified coordinates/date",
             {
-              code: "WEATHER_DATA_NOT_FOUND",
+              code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
               details: errorContext,
               cause: error,
             },
@@ -411,7 +412,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
             HTTP_STATUS.BAD_GATEWAY,
             "Failed to retrieve valid weather data from upstream provider",
             {
-              code: "WEATHER_UPSTREAM_CLIENT_ERROR",
+              code: ERROR_CODES.WEATHER_UPSTREAM_CLIENT_ERROR,
               details: errorContext,
               cause: error,
             },
@@ -423,7 +424,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
             HTTP_STATUS.GATEWAY_TIMEOUT,
             "Weather provider request timed out",
             {
-              code: "WEATHER_UPSTREAM_TIMEOUT",
+              code: ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT,
               details: errorContext,
               cause: error,
             },
@@ -434,7 +435,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           HTTP_STATUS.SERVICE_UNAVAILABLE,
           "Weather provider is unavailable",
           {
-            code: "WEATHER_UPSTREAM_UNAVAILABLE",
+            code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
             details: errorContext,
             cause: error,
           },

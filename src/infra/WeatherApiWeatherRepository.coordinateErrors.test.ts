@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 
 const mockAxiosGet = mock();
@@ -74,7 +75,7 @@ describe("WeatherApiWeatherRepository coordinate-dependent upstream errors", () 
       repository.getWeather(0, -140, "2026-02-09T00:00:00Z"),
     ).rejects.toMatchObject({
       status: HTTP_STATUS.NOT_FOUND,
-      code: "WEATHER_DATA_NOT_FOUND",
+      code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
     });
 
     const hasContextLog = mockLogger.error.mock.calls.some(

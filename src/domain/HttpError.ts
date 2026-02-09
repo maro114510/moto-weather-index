@@ -1,12 +1,14 @@
+import type { ErrorCode } from "../constants/errorCodes";
+
 export interface HttpErrorOptions {
-  code?: string;
+  code?: ErrorCode;
   details?: Record<string, unknown>;
   cause?: unknown;
 }
 
 export class HttpError extends Error {
   readonly status: number;
-  readonly code?: string;
+  readonly code?: ErrorCode;
   readonly details?: Record<string, unknown>;
 
   constructor(status: number, message: string, options: HttpErrorOptions = {}) {
