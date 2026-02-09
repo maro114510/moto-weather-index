@@ -20,7 +20,6 @@ declare global {
   interface Env {
     OPEN_METEO_CACHE: KVNamespace;
     DB: D1Database;
-    RATE_LIMIT_KV: KVNamespace;
   }
 
   // D1 Database types
