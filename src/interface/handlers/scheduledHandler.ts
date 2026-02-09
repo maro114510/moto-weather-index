@@ -100,7 +100,12 @@ export async function scheduledHandler(
   } catch (error) {
     logger.error(
       "Scheduled batch processing failed",
-      { timestamp: new Date().toISOString(), env },
+      {
+        timestamp: new Date().toISOString(),
+        hasDb: !!env.DB,
+        hasWeatherApiKey: !!env.WEATHERAPI_KEY,
+        hasBatchStartDate: !!env.BATCH_START_DATE,
+      },
       error as Error,
     );
     throw error; // Re-throw to mark the execution as failed
