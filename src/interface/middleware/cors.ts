@@ -10,31 +10,61 @@ const ALLOWED_ORIGINS = [
 const CORS_METHODS = "GET, POST, OPTIONS";
 const CORS_HEADERS = "Content-Type";
 
+function appendVaryOrigin(headers: Headers) {
+  const existingVary = headers.get("Vary");
+  if (!existingVary) {
+    headers.set("Vary", "Origin");
+    return;
+  }
+
+  const varyValues = existingVary
+    .split(",")
+    .map((value) => value.trim().toLowerCase());
+
+  if (!varyValues.includes("origin")) {
+    headers.set("Vary", `${existingVary}, Origin`);
+  }
+}
+
 export const corsMiddleware: MiddlewareHandler = async (c, next) => {
   const origin = c.req.header("Origin");
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin || "")
-    ? origin
-    : ALLOWED_ORIGINS[0];
+  const isAllowedOrigin = origin ? ALLOWED_ORIGINS.includes(origin) : false;
 
   // Handle preflight requests
   if (c.req.method === "OPTIONS") {
+    if (!origin || !isAllowedOrigin) {
+      return new Response(null, { status: HTTP_STATUS.FORBIDDEN });
+    }
+
     return new Response(null, {
       status: HTTP_STATUS.NO_CONTENT,
       headers: {
-        "Access-Control-Allow-Origin": allowedOrigin || ALLOWED_ORIGINS[0],
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": CORS_METHODS,
         "Access-Control-Allow-Headers": CORS_HEADERS,
+        "Access-Control-Max-Age": "86400",
+        Vary: "Origin",
       },
     });
+  }
+
+  if (origin && !isAllowedOrigin) {
+    return c.json(
+      {
+        error: "Forbidden",
+        message: "Origin not allowed",
+      },
+      HTTP_STATUS.FORBIDDEN,
+    );
   }
 
   await next();
 
   // Add CORS headers to all responses
-  c.res.headers.set(
-    "Access-Control-Allow-Origin",
-    allowedOrigin || ALLOWED_ORIGINS[0],
-  );
-  c.res.headers.set("Access-Control-Allow-Methods", CORS_METHODS);
-  c.res.headers.set("Access-Control-Allow-Headers", CORS_HEADERS);
+  if (origin && isAllowedOrigin) {
+    c.res.headers.set("Access-Control-Allow-Origin", origin);
+    c.res.headers.set("Access-Control-Allow-Methods", CORS_METHODS);
+    c.res.headers.set("Access-Control-Allow-Headers", CORS_HEADERS);
+    appendVaryOrigin(c.res.headers);
+  }
 };
