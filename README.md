@@ -252,54 +252,6 @@ Get historical touring index data for a location.
 - **Historical Data**: Returns calculated touring indices from the database
 - **Factor Breakdown**: Includes detailed scoring factors for each date
 
-#### POST `/api/v1/touring-index/batch`
-
-**🔐 Authentication Required**
-
-Execute batch calculation for all Japanese prefectures for multiple days. This endpoint requires HMAC-SHA256 authentication.
-
-**Authentication Headers:**
-
-- `X-Touring-Auth`: HMAC-SHA256 signature
-- `X-Timestamp`: Current timestamp (ISO 8601)
-
-**Parameters:**
-
-- `days` (optional): Number of days to calculate (1-30, default: 7)
-- `maxRetries` (optional): Maximum retry attempts (1-10, default: 3)
-
-**Response:**
-
-```json
-{
-  "status": "completed",
-  "duration_ms": 15432,
-  "target_dates": ["2025-06-01", "2025-06-02", "2025-06-03"],
-  "summary": {
-    "total_processed": 141,
-    "successful_inserts": 138,
-    "failed_inserts": 3,
-    "success_rate": 98
-  },
-  "errors": [
-    "Prefecture 01 (2025-06-01): Weather data unavailable"
-  ]
-}
-```
-
-**Authentication Example:**
-
-```bash
-# Calculate HMAC signature
-timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-signature=$(echo -n "$timestamp" | openssl dgst -sha256 -hmac "$BATCH_SECRET" -binary | base64)
-
-# Make authenticated request
-curl -X POST "https://moto-weather-index.stelzen.dev/api/v1/touring-index/batch?days=7" \
-  -H "X-Touring-Auth: $signature" \
-  -H "X-Timestamp: $timestamp"
-```
-
 ## 🛠️ Tech Stack
 
 ### Core Technologies
@@ -339,7 +291,7 @@ curl -X POST "https://moto-weather-index.stelzen.dev/api/v1/touring-index/batch?
 - **Structured Logging**: Custom logging utilities with different log levels
 - **Error Handling**: Comprehensive middleware for error tracking and response
 - **Request Tracking**: Unique request IDs and performance monitoring
-- **Authentication**: HMAC-SHA256 signature-based authentication for batch operations
+- **Batch Processing**: Scheduled batch calculation via Cloudflare Cron Triggers
 
 ## 🌐 Deployment
 
@@ -350,8 +302,9 @@ The API is deployed on Cloudflare Workers with the following configuration:
 #### Automatic Scheduled Tasks
 
 - **Cron Schedule**: Daily at 04:00 JST (19:00 UTC)
-- **Operation**: Batch calculation for all Japanese prefectures (next 7 days)
+- **Operation**: Batch calculation for all Japanese prefectures (next 16 days)
 - **Retry Logic**: Up to 3 attempts per failed operation
+- **Execution Path**: Batch processing runs only from the scheduled worker event (no public HTTP batch endpoint)
 
 #### Environment Configuration
 
@@ -390,9 +343,12 @@ KV read/write amplification in the app layer.
 
 #### Required Environment Variables
 
-- `BATCH_SECRET`: HMAC secret for batch endpoint authentication
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
 - `WEATHERAPI_KEY`: API key for WeatherAPI.com (required for weather fetching and tests)
+
+#### Optional Environment Variables
+
+- `BATCH_START_DATE`: Custom start date for scheduled batch processing (`YYYY-MM-DD`)
 
 ### Local Development
 

@@ -106,57 +106,8 @@ export const getTouringIndexHistorySchema = z.object({
     }),
 });
 
-// Validation schema for batch processing parameters
-export const batchParametersSchema = z.object({
-  days: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val) return 16;
-      const num = Number.parseInt(val, 10);
-      if (Number.isNaN(num) || num < 1 || num > 30) {
-        throw new Error("days parameter must be between 1 and 30");
-      }
-      return num;
-    }),
-  maxRetries: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val) return 3;
-      const num = Number.parseInt(val, 10);
-      if (Number.isNaN(num) || num < 1 || num > 10) {
-        throw new Error("maxRetries parameter must be between 1 and 10");
-      }
-      return num;
-    }),
-  startDate: z
-    .string()
-    .optional()
-    .refine((val) => {
-      if (!val) return true; // Optional parameter
-      // Validate YYYY-MM-DD format
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(val)) return false;
-
-      // Validate that it's actually a valid date
-      const date = new Date(val);
-      const [year, month, day] = val.split("-").map(Number);
-      return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
-      );
-    }, "startDate must be in YYYY-MM-DD format")
-    .transform((val) => {
-      if (!val) return undefined;
-      return val;
-    }),
-});
-
 // Type inference from schemas
 export type GetTouringIndexParams = z.infer<typeof getTouringIndexSchema>;
 export type GetTouringIndexHistoryParams = z.infer<
   typeof getTouringIndexHistorySchema
 >;
-export type BatchParametersParams = z.infer<typeof batchParametersSchema>;
