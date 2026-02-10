@@ -1,4 +1,6 @@
+import stringify from "safe-stable-stringify";
 import { HTTP_STATUS } from "../constants/httpStatus";
+import { sanitizeLogData } from "./logSanitizer";
 
 export enum LogLevel {
   DEBUG = 0,
@@ -59,25 +61,27 @@ class Logger {
     context: LogContext = {},
     error?: Error,
   ): LogEntry {
+    const sanitizedContext = sanitizeLogData({
+      ...context,
+      // Add environment info if available
+      ...(globalThis.process?.env?.NODE_ENV && {
+        environment: globalThis.process.env.NODE_ENV,
+      }),
+    });
+
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level: LogLevel[level],
       message,
-      context: {
-        ...context,
-        // Add environment info if available
-        ...(globalThis.process?.env?.NODE_ENV && {
-          environment: globalThis.process.env.NODE_ENV,
-        }),
-      },
+      context: sanitizedContext,
     };
 
     if (error) {
       logEntry.error = {
         name: error.name,
-        message: error.message,
+        message: String(sanitizeLogData(error.message)),
         stack: error.stack,
-        cause: error.cause,
+        cause: sanitizeLogData(error.cause),
       };
     }
 
@@ -85,7 +89,7 @@ class Logger {
   }
 
   private output(logEntry: LogEntry) {
-    const logString = JSON.stringify(logEntry);
+    const logString = stringify(logEntry);
 
     switch (LogLevel[logEntry.level as keyof typeof LogLevel]) {
       case LogLevel.ERROR:
