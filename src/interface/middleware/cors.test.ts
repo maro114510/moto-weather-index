@@ -59,5 +59,42 @@ describe("corsMiddleware", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
       "http://localhost:3000",
     );
+    expect(res.headers.get("Access-Control-Max-Age")).toBe("86400");
+  });
+
+  test("rejects preflight request without origin", async () => {
+    const c = createContext("OPTIONS");
+    const next = async () => {
+      c.res = new Response("ok", { status: 200 });
+    };
+
+    const res = await corsMiddleware(c as never, next as never);
+    expect(res.status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
+  test("passes through requests with no Origin header", async () => {
+    const c = createContext("GET");
+    const next = async () => {
+      c.res = new Response("ok", { status: 200 });
+    };
+
+    const res = await corsMiddleware(c as never, next as never);
+    expect(res).toBeUndefined();
+    expect(c.res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  test("preserves existing Vary header entries", async () => {
+    const c = createContext("GET", "http://localhost:3000");
+    const next = async () => {
+      c.res = new Response("ok", {
+        status: 200,
+        headers: { Vary: "Accept-Encoding" },
+      });
+    };
+
+    await corsMiddleware(c as never, next as never);
+
+    expect(c.res.headers.get("Vary")).toContain("Accept-Encoding");
+    expect(c.res.headers.get("Vary")?.toLowerCase()).toContain("origin");
   });
 });
