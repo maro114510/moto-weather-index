@@ -1,65 +1,23 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
+# AGENTS
 
-These instructions are for AI assistants working in this project.
+This file defines the minimum working rules for coding agents in this repository.
 
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
+## Scope
+- This is the single source of truth for agent behavior in this repo.
 
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
+## Workflow
+- Make focused, minimal changes that solve the requested task.
+- Do not restate architecture or code behavior that is already clear from source.
+- Prefer existing patterns in `src/domain`, `src/usecase`, `src/infra`, and `src/interface`.
 
-Keep this managed block so 'openspec update' can refresh the instructions.
+## Validation
+- Run `task lint` after changes.
+- Run `task test` after changes.
+- If tests require external credentials, set `WEATHERAPI_KEY` before running.
 
-<!-- OPENSPEC:END -->
+## Safety
+- Never commit or log secrets.
+- Avoid destructive Git operations unless explicitly requested.
 
-# Repository Guidelines
-
-## Project Structure & Module Organization
-- `src/domain/`: Core types and rules (e.g., `Weather.ts`, `ScoreRules.ts`).
-- `src/usecase/`: Application logic (e.g., `CalculateTouringIndex.ts`).
-- `src/infra/`: External adapters (e.g., `WeatherApiWeatherRepository.ts`, `D1TouringIndexRepository.ts`).
-- `src/interface/`: HTTP layer with handlers, routes, middleware.
-- `src/dao/`: Zod schemas for request/response validation.
-- `src/constants/`, `src/utils/`, `src/di/`: Config, helpers, and DI wiring.
-- Tests are colocated as `*.test.ts` next to source files.
-
-## Build, Test, and Development Commands
-- `bun run dev`: Start local server (see README for ports).
-- `WEATHERAPI_KEY=your_key bun test`: Run test suite (WeatherAPI required).
-- `task lint` / `task format`: Lint and format via Biome.
-- `task wrangler:dev` / `task wrangler:deploy`: Cloudflare Workers dev/deploy.
-
-### Secrets
-- Set WeatherAPI key for Workers:
-  - `wrangler secret put WEATHERAPI_KEY`
-  - In handlers, pass `env.WEATHERAPI_KEY` into DI when constructing the repository.
-## Coding Style & Naming Conventions
-- Language: TypeScript (ESNext), 2‑space indentation.
-- Lint/Format: Biome (`task lint`, `task format`).
-- Naming: PascalCase for classes/value objects; camelCase for variables/functions; `CONSTANT_CASE` for constants. File names follow the dominant pattern in each layer (e.g., `TouringScore.ts`, `weatherHandler.ts`).
-- Validation: Use Zod schemas in `src/dao` and domain validators (e.g., `WeatherSchema`).
-
-## Testing Guidelines
-- Framework: Bun Test.
-- Location: Colocated `*.test.ts` with concise, behavior‑focused cases.
-- Running: `WEATHERAPI_KEY=your_key bun test`.
-- Prefer unit tests for rules, and thin integration tests for infra adapters.
-
-## Completion Criteria
-- The task is complete when the following pass locally:
-  - `task test` (set `WEATHERAPI_KEY` where required)
-  - `task lint`
-
-## Commit & Pull Request Guidelines
-- Use clear, scoped messages. Preferred: Conventional Commits (`feat:`, `fix:`, `chore(deps):`, `refactor:`). Examples from history: `fix:`, `chore(deps): bump`, `fix(biome):`.
-- PRs must include: purpose/summary, linked issues, testing notes (commands/output), and any API/infra changes. Add screenshots or curl outputs when changing HTTP endpoints.
-
-## Security & Configuration Tips
-- Secrets: Do not commit keys. Set `WEATHERAPI_KEY` locally/CI. Cloudflare KV binding `OPEN_METEO_CACHE` is used for caching.
-- Errors/Logging: Use `logger` utilities; avoid leaking secrets in logs.
-- Determinism: When adding tests touching external APIs, gate with env vars and keep responses normalized to the `Weather` domain type.
+## Completion
+- A task is done only when `task lint` and `task test` pass locally, or when blocked by missing required secrets and that blocker is reported.
