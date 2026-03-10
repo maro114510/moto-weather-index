@@ -55,7 +55,9 @@ export const weatherRoute = createRoute({
         "application/json": {
           schema: z.object({
             datetime: z.string().openapi({ example: "2024-01-01T12:00:00Z" }),
-            condition: WeatherConditionSchema.openapi({ example: "clear" }),
+            condition: z
+              .enum(WeatherConditionSchema.options)
+              .openapi({ example: "clear" }),
             temperature: z.number().openapi({ example: 25.5 }),
             windSpeed: z.number().openapi({ example: 5.2 }),
             humidity: z.number().openapi({ example: 60 }),
