@@ -2,10 +2,10 @@ import { createRoute, z } from "@hono/zod-openapi";
 import {
   ErrorResponseSchema,
   HealthResponseSchema,
-  WeatherResponseSchema,
-  TouringIndexResponseSchema,
-  TouringIndexHistoryResponseSchema,
   PrefectureListResponseSchema,
+  TouringIndexHistoryResponseSchema,
+  TouringIndexResponseSchema,
+  WeatherResponseSchema,
 } from "./schemas";
 
 // Health check route

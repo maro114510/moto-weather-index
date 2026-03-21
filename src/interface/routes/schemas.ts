@@ -21,9 +21,7 @@ export const LocationSchema = z
 export const HealthResponseSchema = z
   .object({
     status: z.string().openapi({ example: "ok" }),
-    timestamp: z
-      .string()
-      .openapi({ example: "2024-01-01T00:00:00.000Z" }),
+    timestamp: z.string().openapi({ example: "2024-01-01T00:00:00.000Z" }),
   })
   .openapi("HealthResponse");
 
@@ -76,9 +74,7 @@ export const TouringIndexHistoryItemSchema = z
         humidity: 15,
       },
     }),
-    calculated_at: z
-      .string()
-      .openapi({ example: "2024-06-01T06:00:00Z" }),
+    calculated_at: z.string().openapi({ example: "2024-06-01T06:00:00Z" }),
   })
   .openapi("TouringIndexHistoryItem");
 
