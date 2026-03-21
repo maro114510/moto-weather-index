@@ -99,35 +99,27 @@ describe("prefectureHandler", () => {
       expect(capturedResponse.status).toBe(HTTP_STATUS.OK);
     });
 
-    test("should return 500 when repository creation fails", async () => {
-      // Mock createTouringIndexRepository to throw
+    // Error cases: handlers now throw and let app.onError handle the response.
+    // Response format is tested at the integration level.
+
+    test("should throw when repository creation fails", async () => {
       mockCreateTouringIndexRepository.mockImplementation(() => {
         throw new Error("Failed to initialize repository");
       });
 
-      // Call the handler
-      await getPrefectures(mockContext as Context);
-
-      // Verify the response is an error
-      expect(capturedResponse.data).toEqual({
-        error: "Internal server error",
-      });
-      expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      await expect(
+        getPrefectures(mockContext as Context),
+      ).rejects.toThrow("Failed to initialize repository");
     });
 
-    test("should return 500 when an error occurs", async () => {
-      // Mock repository that throws an error
+    test("should throw when repository query fails", async () => {
       mockRepo.getAllPrefectures.mockRejectedValue(new Error("Database error"));
 
-      // Call the handler
-      await getPrefectures(mockContext as Context);
+      await expect(
+        getPrefectures(mockContext as Context),
+      ).rejects.toThrow("Database error");
 
-      // Verify that getAllPrefectures was called
       expect(mockRepo.getAllPrefectures).toHaveBeenCalledTimes(1);
-
-      // Verify the response is an error
-      expect(capturedResponse.data).toEqual({ error: "Internal server error" });
-      expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     });
   });
 });

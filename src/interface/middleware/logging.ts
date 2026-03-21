@@ -5,7 +5,7 @@ export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
   const requestId = c.get("requestId");
   const startTime = Date.now();
 
-  // Store in context for use in handlers
+  // Store in context for use in handlers and app.onError
   c.set("startTime", startTime);
 
   // Create base request context
@@ -24,26 +24,15 @@ export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
   // Log incoming request
   logger.apiRequest(c.req.method, c.req.path, requestContext);
 
-  try {
-    await next();
-  } catch (error) {
-    // Log unhandled errors at middleware level
-    logger.error(
-      "Unhandled error in request processing",
-      requestContext,
-      error as Error,
-    );
+  await next();
 
-    // Re-throw to let error handling middleware deal with it
-    throw error;
-  } finally {
-    // Log response
-    const duration = Date.now() - startTime;
-    const statusCode = c.res.status;
+  // Log response — only runs for successful responses.
+  // Error responses are logged by app.onError via logErrorResponse().
+  const duration = Date.now() - startTime;
+  const statusCode = c.res.status;
 
-    logger.apiResponse(c.req.method, c.req.path, statusCode, duration, {
-      ...requestContext,
-      responseSize: c.res.headers.get("content-length") || "unknown",
-    });
-  }
+  logger.apiResponse(c.req.method, c.req.path, statusCode, duration, {
+    ...requestContext,
+    responseSize: c.res.headers.get("content-length") || "unknown",
+  });
 });
