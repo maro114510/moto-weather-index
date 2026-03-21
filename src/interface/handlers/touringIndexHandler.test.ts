@@ -490,8 +490,10 @@ describe("getTouringIndexHistory", () => {
       );
     });
 
-    test("should return 500 when database is not available", async () => {
-      mockContext.env = {}; // No DB
+    test("should return 500 when repository creation fails", async () => {
+      mockCreateTouringIndexRepository.mockImplementation(() => {
+        throw new Error("Failed to initialize repository");
+      });
 
       (mockContext.req as any).query = createQueryMock({
         lat: "35.6762",
@@ -513,7 +515,7 @@ describe("getTouringIndexHistory", () => {
 
       // Verify
       expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      expect(capturedResponse.data.error).toBe("Database not available");
+      expect(capturedResponse.data.error).toBe("Internal server error");
     });
 
     test("should return 500 when repository throws error", async () => {

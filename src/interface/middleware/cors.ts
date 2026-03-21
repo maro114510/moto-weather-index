@@ -1,5 +1,5 @@
-import type { MiddlewareHandler } from "hono";
 import { HTTP_STATUS } from "../../constants/httpStatus";
+import { factory } from "../../factory";
 
 const ALLOWED_ORIGINS = [
   "https://moto-weather-index-front.pages.dev",
@@ -26,7 +26,7 @@ function appendVaryOrigin(headers: Headers) {
   }
 }
 
-export const corsMiddleware: MiddlewareHandler = async (c, next) => {
+export const corsMiddleware = factory.createMiddleware(async (c, next) => {
   const origin = c.req.header("Origin");
   const isAllowedOrigin = origin ? ALLOWED_ORIGINS.includes(origin) : false;
 
@@ -67,4 +67,4 @@ export const corsMiddleware: MiddlewareHandler = async (c, next) => {
     c.res.headers.set("Access-Control-Allow-Headers", CORS_HEADERS);
     appendVaryOrigin(c.res.headers);
   }
-};
+});

@@ -5,12 +5,13 @@ import { HTTP_STATUS } from "../../constants/httpStatus";
 import { getWeatherSchema } from "../../dao/weatherSchemas";
 import { createWeatherRepository } from "../../di/container";
 import { HttpError } from "../../domain/HttpError";
+import type { AppEnv } from "../../types/env";
 import { logger } from "../../utils/logger";
 
 /**
  * Handler for GET /weather
  */
-export async function getWeather(c: Context) {
+export async function getWeather(c: Context<AppEnv>) {
   const requestContext = c.get("requestContext") || {};
 
   logger.businessLogic("get_weather_start", requestContext);
@@ -35,8 +36,8 @@ export async function getWeather(c: Context) {
     });
 
     // Get KV namespace from environment
-    const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv, c.env?.WEATHERAPI_KEY);
+    const kv = c.env.OPEN_METEO_CACHE;
+    const weatherRepo = createWeatherRepository(kv, c.env.WEATHERAPI_KEY);
 
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
 

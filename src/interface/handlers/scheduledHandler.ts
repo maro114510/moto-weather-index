@@ -4,19 +4,13 @@ import {
   createTouringIndexRepository,
   createWeatherRepository,
 } from "../../di/container";
+import type { AppEnv } from "../../types/env";
 import { BatchCalculateTouringIndexUsecase } from "../../usecase/BatchCalculateTouringIndex";
 import { logger } from "../../utils/logger";
 
-interface Env {
-  OPEN_METEO_CACHE?: KVNamespace;
-  DB?: D1Database;
-  WEATHERAPI_KEY?: string;
-  BATCH_START_DATE?: string; // Optional custom start date for batch processing (YYYY-MM-DD format)
-}
-
 export async function scheduledHandler(
   _controller: ScheduledController,
-  env: Env,
+  env: AppEnv["Bindings"],
   _ctx: ExecutionContext,
 ): Promise<void> {
   logger.info("Starting scheduled batch calculation", {
@@ -25,11 +19,6 @@ export async function scheduledHandler(
   });
 
   try {
-    // Check if database is available
-    if (!env.DB) {
-      throw new Error("Database not available in scheduled environment");
-    }
-
     // Default parameters for scheduled execution
     const days = 16; // Calculate for next 16 days
     const maxRetries = 3;

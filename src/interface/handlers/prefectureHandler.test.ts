@@ -99,16 +99,18 @@ describe("prefectureHandler", () => {
       expect(capturedResponse.status).toBe(HTTP_STATUS.OK);
     });
 
-    test("should return 500 when database is not available", async () => {
-      // Mock Hono context without DB
-      mockContext.env = {};
+    test("should return 500 when repository creation fails", async () => {
+      // Mock createTouringIndexRepository to throw
+      mockCreateTouringIndexRepository.mockImplementation(() => {
+        throw new Error("Failed to initialize repository");
+      });
 
       // Call the handler
       await getPrefectures(mockContext as Context);
 
       // Verify the response is an error
       expect(capturedResponse.data).toEqual({
-        error: "Database not available",
+        error: "Internal server error",
       });
       expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     });

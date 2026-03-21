@@ -1,19 +1,11 @@
-import type { Context, Next } from "hono";
+import { factory } from "../../factory";
 import {
   createRequestContext,
   generateRequestId,
   logger,
 } from "../../utils/logger";
 
-declare module "hono" {
-  interface ContextVariableMap {
-    requestId: string;
-    requestContext: ReturnType<typeof createRequestContext>;
-    startTime: number;
-  }
-}
-
-export async function loggingMiddleware(c: Context, next: Next) {
+export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
   // Generate unique request ID
   const requestId = generateRequestId();
   const startTime = Date.now();
@@ -60,4 +52,4 @@ export async function loggingMiddleware(c: Context, next: Next) {
       responseSize: c.res.headers.get("content-length") || "unknown",
     });
   }
-}
+});

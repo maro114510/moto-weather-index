@@ -12,6 +12,7 @@ import {
   createWeatherRepository,
 } from "../../di/container";
 import { HttpError } from "../../domain/HttpError";
+import type { AppEnv } from "../../types/env";
 import { calculateTouringIndex } from "../../usecase/CalculateTouringIndex";
 import { validateDateRange } from "../../utils/dateUtils";
 import { logger } from "../../utils/logger";
@@ -23,7 +24,7 @@ import {
 /**
  * Handler for GET /touring-index
  */
-export async function getTouringIndex(c: Context) {
+export async function getTouringIndex(c: Context<AppEnv>) {
   const requestContext = c.get("requestContext") || {};
 
   logger.businessLogic("calculate_touring_index_start", requestContext);
@@ -55,8 +56,8 @@ export async function getTouringIndex(c: Context) {
     });
 
     // Get KV namespace from environment
-    const kv = c.env?.OPEN_METEO_CACHE;
-    const weatherRepo = createWeatherRepository(kv, c.env?.WEATHERAPI_KEY);
+    const kv = c.env.OPEN_METEO_CACHE;
+    const weatherRepo = createWeatherRepository(kv, c.env.WEATHERAPI_KEY);
 
     const weather = await weatherRepo.getWeather(lat, lon, datetime);
     const { score, breakdown } = calculateTouringIndex(weather);
@@ -109,7 +110,7 @@ export async function getTouringIndex(c: Context) {
  * Handler for GET /touring-index/history
  * Get historical touring index data for a location
  */
-export async function getTouringIndexHistory(c: Context) {
+export async function getTouringIndexHistory(c: Context<AppEnv>) {
   const requestContext = c.get("requestContext") || {};
 
   logger.businessLogic("get_touring_index_history_start", requestContext);
@@ -145,18 +146,7 @@ export async function getTouringIndexHistory(c: Context) {
     }
 
     // Get D1 database from environment
-    const db = c.env?.DB;
-    if (!db) {
-      logger.error("Database not available for history query", {
-        ...requestContext,
-        operation: "history_db_missing",
-      });
-      return c.json(
-        { error: "Database not available" },
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      );
-    }
-
+    const db = c.env.DB;
     const touringIndexRepo = createTouringIndexRepository(db);
 
     let targetPrefectureId: number;

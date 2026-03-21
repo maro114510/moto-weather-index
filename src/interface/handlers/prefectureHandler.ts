@@ -2,31 +2,21 @@
 import type { Context } from "hono";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import { createTouringIndexRepository } from "../../di/container";
+import type { AppEnv } from "../../types/env";
 import { logger } from "../../utils/logger";
 
 /**
  * Handler for GET /prefectures
  * Returns a list of all 47 Japanese prefectures
  */
-export async function getPrefectures(c: Context) {
+export async function getPrefectures(c: Context<AppEnv>) {
   const requestContext = c.get("requestContext") || {};
 
   logger.businessLogic("get_prefectures_start", requestContext);
 
   try {
     // Get D1 database from environment
-    const db = c.env?.DB;
-    if (!db) {
-      logger.error("Database not available for prefecture list", {
-        ...requestContext,
-        operation: "prefecture_db_missing",
-      });
-      return c.json(
-        { error: "Database not available" },
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      );
-    }
-
+    const db = c.env.DB;
     const touringIndexRepo = createTouringIndexRepository(db);
 
     // Fetch all prefectures from database

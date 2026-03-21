@@ -1,12 +1,13 @@
 // Interface Layer - Rate Limit Middleware
 
-import type { Context, Next } from "hono";
+import type { Context } from "hono";
+import type { AppEnv } from "../../types/env";
 import type { EnforceRateLimitUseCase } from "../../usecase/EnforceRateLimit";
 
 export function createRateLimitMiddleware(
   enforceRateLimitUseCase: EnforceRateLimitUseCase,
 ) {
-  return async (c: Context, next: Next) => {
+  return async (c: Context<AppEnv>, next: () => Promise<void>) => {
     // 1. Extract client IP
     const clientIP = extractClientIP(c);
 
@@ -36,7 +37,7 @@ export function createRateLimitMiddleware(
   };
 }
 
-function extractClientIP(c: Context): string {
+function extractClientIP(c: Context<AppEnv>): string {
   return (
     c.req.header("CF-Connecting-IP") ||
     c.req.header("X-Forwarded-For")?.split(",")[0]?.trim() ||

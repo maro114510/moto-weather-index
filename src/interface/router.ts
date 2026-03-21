@@ -1,5 +1,6 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { AppEnv } from "../types/env";
 import { healthCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
@@ -18,7 +19,7 @@ import {
   weatherRoute,
 } from "./routes/openapi";
 
-export const app = new OpenAPIHono();
+export const app = new OpenAPIHono<AppEnv>();
 
 // Apply global middleware
 app.use("*", corsMiddleware);

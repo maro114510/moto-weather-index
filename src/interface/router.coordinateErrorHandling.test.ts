@@ -18,6 +18,12 @@ mock.module("axios", () => {
 
 const { app } = await import("./router");
 
+const testEnv = {
+  WEATHERAPI_KEY: "test-key",
+  OPEN_METEO_CACHE: {} as KVNamespace,
+  DB: {} as D1Database,
+};
+
 describe("coordinate-dependent upstream error handling", () => {
   beforeEach(() => {
     process.env.WEATHERAPI_KEY = "test-key";
@@ -42,6 +48,8 @@ describe("coordinate-dependent upstream error handling", () => {
 
     const res = await app.request(
       "http://localhost/api/v1/weather?lat=0&lon=-140&datetime=2026-02-09",
+      {},
+      testEnv,
     );
     const body = await res.json();
 
@@ -67,6 +75,8 @@ describe("coordinate-dependent upstream error handling", () => {
 
     const res = await app.request(
       "http://localhost/api/v1/touring-index?lat=0&lon=-140&datetime=2026-02-09",
+      {},
+      testEnv,
     );
     const body = await res.json();
 
@@ -98,11 +108,15 @@ describe("coordinate-dependent upstream error handling", () => {
 
     const weatherRes = await app.request(
       "http://localhost/api/v1/weather?lat=35.6762&lon=139.6503&datetime=2026-02-09",
+      {},
+      testEnv,
     );
     expect(weatherRes.status).toBe(HTTP_STATUS.OK);
 
     const touringRes = await app.request(
       "http://localhost/api/v1/touring-index?lat=35.6762&lon=139.6503&datetime=2026-02-09",
+      {},
+      testEnv,
     );
     expect(touringRes.status).toBe(HTTP_STATUS.OK);
   });

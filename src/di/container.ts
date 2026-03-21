@@ -19,6 +19,3 @@ export function createBatchCalculateTouringIndexUsecase(
     touringIndexRepository,
   );
 }
-
-// For backward compatibility
-export const weatherRepository = new WeatherApiWeatherRepository();
