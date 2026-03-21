@@ -26,8 +26,9 @@ export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
 
   await next();
 
-  // Log response — only runs for successful responses.
-  // Error responses are logged by app.onError via logErrorResponse().
+  // Log response — runs for both success and error cases.
+  // Hono's compose() resolves await next() after app.onError sets c.res,
+  // so c.res.status correctly reflects the error status code.
   const duration = Date.now() - startTime;
   const statusCode = c.res.status;
 

@@ -1,6 +1,8 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
@@ -30,10 +32,13 @@ app.use("*", corsMiddleware);
 app.use("*", requestId());
 app.use("*", loggingMiddleware);
 
-// Global error handler — single source of truth for error → response conversion
+// Global error handler — single source of truth for error → response conversion.
+// Hono's compose() catches handler errors and calls app.onError, then resolves
+// the middleware's await next() with the error response set on c.res.
+// Therefore loggingMiddleware's post-next code runs for BOTH success and error
+// cases, and response logging is handled there — not here.
 app.onError((error, c) => {
   const requestContext = c.get("requestContext") || {};
-  const startTime = c.get("startTime");
 
   if (error instanceof ZodError) {
     logger.warn(
@@ -50,14 +55,6 @@ app.onError((error, c) => {
       error,
     );
 
-    logErrorResponse(
-      c.req.method,
-      c.req.path,
-      HTTP_STATUS.BAD_REQUEST,
-      startTime,
-      requestContext,
-    );
-
     return c.json(
       {
         error: "Invalid parameters",
@@ -68,8 +65,13 @@ app.onError((error, c) => {
     );
   }
 
+  // Hono built-in HTTPException (thrown by bearerAuth, jwt, etc.)
+  if (error instanceof HTTPException) {
+    return error.getResponse();
+  }
+
   if (error instanceof HttpError) {
-    const statusCode = error.status;
+    const statusCode = error.status as ContentfulStatusCode;
 
     if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
       logger.error(
@@ -97,20 +99,12 @@ app.onError((error, c) => {
       );
     }
 
-    logErrorResponse(
-      c.req.method,
-      c.req.path,
-      statusCode,
-      startTime,
-      requestContext,
-    );
-
     return c.json(
       {
         error: error.message,
         requestId: c.get("requestId"),
       },
-      statusCode as any,
+      statusCode,
     );
   }
 
@@ -123,14 +117,6 @@ app.onError((error, c) => {
         errorType: "fetch_error",
       },
       error,
-    );
-
-    logErrorResponse(
-      c.req.method,
-      c.req.path,
-      HTTP_STATUS.SERVICE_UNAVAILABLE,
-      startTime,
-      requestContext,
     );
 
     return c.json(
@@ -153,14 +139,6 @@ app.onError((error, c) => {
     error instanceof Error ? error : new Error(String(error)),
   );
 
-  logErrorResponse(
-    c.req.method,
-    c.req.path,
-    HTTP_STATUS.INTERNAL_SERVER_ERROR,
-    startTime,
-    requestContext,
-  );
-
   return c.json(
     {
       error: "Internal server error",
@@ -170,27 +148,6 @@ app.onError((error, c) => {
     HTTP_STATUS.INTERNAL_SERVER_ERROR,
   );
 });
-
-/**
- * Log API response for error cases handled by app.onError.
- *
- * app.onError runs outside the middleware chain, so loggingMiddleware's
- * post-next response logging does not execute for error paths.
- * This helper ensures error responses are still logged with duration.
- */
-function logErrorResponse(
-  method: string,
-  path: string,
-  statusCode: number,
-  startTime: number | undefined,
-  requestContext: Record<string, unknown>,
-) {
-  const duration = startTime ? Date.now() - startTime : 0;
-  logger.apiResponse(method, path, statusCode, duration, {
-    ...requestContext,
-    responseSize: "unknown",
-  });
-}
 
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);

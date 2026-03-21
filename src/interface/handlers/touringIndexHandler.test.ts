@@ -354,16 +354,12 @@ describe("getTouringIndexHistory", () => {
         throw new Error("startDate must be before endDate");
       });
 
-      try {
-        await getTouringIndexHistory(mockContext as Context);
-        throw new Error("Expected HttpError to be thrown");
-      } catch (err) {
-        expect(err).toBeInstanceOf(HttpError);
-        expect((err as HttpError).status).toBe(HTTP_STATUS.BAD_REQUEST);
-        expect((err as HttpError).message).toBe(
-          "startDate must be before endDate",
-        );
-      }
+      const error = await getTouringIndexHistory(mockContext as Context).catch(
+        (e) => e,
+      );
+      expect(error).toBeInstanceOf(HttpError);
+      expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+      expect(error.message).toBe("startDate must be before endDate");
     });
 
     test("should throw HttpError(400) for date range exceeding 16 days in future", async () => {
@@ -390,16 +386,14 @@ describe("getTouringIndexHistory", () => {
         throw new Error("endDate cannot be more than 16 days in the future");
       });
 
-      try {
-        await getTouringIndexHistory(mockContext as Context);
-        throw new Error("Expected HttpError to be thrown");
-      } catch (err) {
-        expect(err).toBeInstanceOf(HttpError);
-        expect((err as HttpError).status).toBe(HTTP_STATUS.BAD_REQUEST);
-        expect((err as HttpError).message).toBe(
-          "endDate cannot be more than 16 days in the future",
-        );
-      }
+      const error = await getTouringIndexHistory(mockContext as Context).catch(
+        (e) => e,
+      );
+      expect(error).toBeInstanceOf(HttpError);
+      expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+      expect(error.message).toBe(
+        "endDate cannot be more than 16 days in the future",
+      );
     });
 
     test("should throw when repository creation fails", async () => {
