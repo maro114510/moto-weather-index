@@ -1,5 +1,3 @@
-import type { AxiosError, AxiosResponse } from "axios";
-import axios from "axios";
 import { APP_CONFIG } from "../constants/appConfig";
 import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
@@ -88,6 +86,24 @@ function parseAndClampPrecipitationProbability(
   return Math.max(0, Math.min(100, parsed));
 }
 
+/**
+ * Represents an HTTP error from a fetch response (non-2xx status).
+ * Used internally to carry status/body through retry and error-handling logic.
+ */
+class FetchHttpError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly data: any;
+
+  constructor(status: number, statusText: string, data: any) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "FetchHttpError";
+    this.status = status;
+    this.statusText = statusText;
+    this.data = data;
+  }
+}
+
 export class WeatherApiWeatherRepository implements WeatherRepository {
   private readonly apiKey?: string;
 
@@ -144,7 +160,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     const maxForecastDateStr = maxForecastDate.toISOString().split("T")[0];
 
     let url: string;
-    let params: any;
+    let params: Record<string, string>;
 
     if (isHistorical) {
       // Use history API for past dates
@@ -183,7 +199,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       params = {
         key,
         q: `${lat},${lon}`,
-        days: days,
+        days: String(days),
         dt: targetDate,
         aqi: "no",
         alerts: "no",
@@ -209,11 +225,13 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     const baseDelayMs = 300; // start small to avoid unnecessary load
     const capMs = 3000; // keep within a reasonable upper bound
 
-    const shouldRetry = (err: AxiosError) => {
-      const status = err.response?.status;
-      // Do not retry on 429 (rate limit) or other 4xx (considered fatal)
-      if (status && (status === 429 || (status >= 400 && status < 500))) {
-        return false;
+    const shouldRetry = (err: unknown) => {
+      if (err instanceof FetchHttpError) {
+        const status = err.status;
+        // Do not retry on 429 (rate limit) or other 4xx (considered fatal)
+        if (status === 429 || (status >= 400 && status < 500)) {
+          return false;
+        }
       }
       // Retry on network errors/timeouts and 5xx
       return true;
@@ -221,29 +239,44 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
 
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    const requestWithBackoff = async (): Promise<AxiosResponse> => {
+    const requestWithBackoff = async (): Promise<{
+      status: number;
+      data: any;
+    }> => {
       let attempt = 0;
+      const fullUrl = `${url}?${new URLSearchParams(params).toString()}`;
       // First attempt + retries up to maxRetries
       while (true) {
         const startedAt = Date.now();
         try {
-          const res = await axios.get(url, { params });
+          const response = await fetch(fullUrl);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new FetchHttpError(
+              response.status,
+              response.statusText,
+              data,
+            );
+          }
+
           const apiDuration = Date.now() - startedAt;
           logger.externalApiResponse(
             "WeatherAPI",
             url,
-            res.status,
+            response.status,
             apiDuration,
             {
-              responseSize: JSON.stringify(res.data).length,
+              responseSize: JSON.stringify(data).length,
               attempt,
             },
           );
-          return res;
+          return { status: response.status, data };
         } catch (e) {
-          const err = e as AxiosError;
-          const status = err.response?.status;
-          const canRetry = shouldRetry(err) && attempt < maxRetries;
+          const status = e instanceof FetchHttpError ? e.status : undefined;
+          const statusText =
+            e instanceof FetchHttpError ? e.statusText : undefined;
+          const canRetry = shouldRetry(e) && attempt < maxRetries;
           logger.warn(
             "WeatherAPI request error",
             {
@@ -251,14 +284,14 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
               attempt,
               willRetry: canRetry,
               statusCode: status,
-              statusText: err.response?.statusText,
-              errorCode: err.code,
+              statusText,
+              errorCode: e instanceof Error ? e.name : undefined,
               url,
             },
-            err as Error,
+            e instanceof Error ? e : undefined,
           );
 
-          if (!canRetry) throw err;
+          if (!canRetry) throw e;
 
           // Exponential backoff with full jitter
           const backoff = Math.min(capMs, baseDelayMs * 2 ** attempt);
@@ -280,7 +313,9 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         // For forecast, find the specific day we requested
         const forecastDays = res.data?.forecast?.forecastday;
         if (forecastDays && Array.isArray(forecastDays)) {
-          const targetDay = forecastDays.find((d) => d.date === targetDate);
+          const targetDay = forecastDays.find(
+            (d: any) => d.date === targetDate,
+          );
           day = targetDay?.day;
         } else {
           day = res.data?.forecast?.forecastday?.[0]?.day;
@@ -369,29 +404,26 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         throw error;
       }
 
-      if (axios.isAxiosError(error)) {
-        const upstreamCode = error.response?.data?.error?.code;
-        const upstreamMessage = error.response?.data?.error?.message;
+      if (error instanceof FetchHttpError) {
+        const upstreamCode = error.data?.error?.code;
+        const upstreamMessage = error.data?.error?.message;
         const errorContext = {
           operation: "api_request_error",
           failurePoint: "weatherapi_request",
           location: { lat, lon },
           targetDate,
-          statusCode: error.response?.status,
-          statusText: error.response?.statusText,
+          statusCode: error.status,
+          statusText: error.statusText,
           upstreamCode,
           upstreamMessage,
-          upstreamResponse: error.response?.data,
-          errorCode: error.code,
+          upstreamResponse: error.data,
+          errorCode: error.name,
           url,
         };
 
         logger.error("WeatherAPI request failed", errorContext, error);
 
-        if (
-          error.response?.status === HTTP_STATUS.BAD_REQUEST &&
-          upstreamCode === 1006
-        ) {
+        if (error.status === HTTP_STATUS.BAD_REQUEST && upstreamCode === 1006) {
           throw new HttpError(
             HTTP_STATUS.NOT_FOUND,
             "Weather data is unavailable for the specified coordinates/date",
@@ -403,11 +435,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           );
         }
 
-        if (
-          error.response?.status &&
-          error.response.status >= 400 &&
-          error.response.status < 500
-        ) {
+        if (error.status >= 400 && error.status < 500) {
           throw new HttpError(
             HTTP_STATUS.BAD_GATEWAY,
             "Failed to retrieve valid weather data from upstream provider",
@@ -419,7 +447,31 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           );
         }
 
-        if (error.code === "ECONNABORTED") {
+        throw new HttpError(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Weather provider is unavailable",
+          {
+            code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
+            details: errorContext,
+            cause: error,
+          },
+        );
+      }
+
+      // Network errors (TypeError) and timeouts (AbortError)
+      if (error instanceof Error) {
+        const errorContext = {
+          operation: "api_request_error",
+          failurePoint: "weatherapi_request",
+          location: { lat, lon },
+          targetDate,
+          errorCode: error.name,
+          url,
+        };
+
+        logger.error("WeatherAPI request failed", errorContext, error);
+
+        if (error.name === "AbortError") {
           throw new HttpError(
             HTTP_STATUS.GATEWAY_TIMEOUT,
             "Weather provider request timed out",
@@ -441,6 +493,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           },
         );
       }
+
       throw error;
     }
   }
