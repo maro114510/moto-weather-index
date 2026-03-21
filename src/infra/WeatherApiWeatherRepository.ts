@@ -9,31 +9,31 @@ import type { WeatherRepository } from "./WeatherRepository";
 // WeatherAPI.com condition code mapping (coarse mapping to our domain)
 // Ref: https://www.weatherapi.com/docs/weather_conditions.json
 function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
-	// Clear / sunny
-	if (code === 1000) return "clear";
-	// Partly cloudy
-	if (code === 1003) return "partly_cloudy";
-	// Cloudy / overcast
-	if (code === 1006) return "cloudy";
-	if (code === 1009) return "overcast";
-	// Fog / mist
-	if ([1030, 1135, 1147].includes(code)) return "fog";
-	// Drizzle / light rain-ish
-	if ([1150, 1153, 1168, 1171, 1180, 1183].includes(code)) return "drizzle";
-	// Rain (including showers, thunder with rain, excluding sleet)
-	if (
-		[1063, 1186, 1189, 1192, 1195, 1240, 1243, 1246, 1273, 1276].includes(code)
-	)
-		return "rain";
-	// Snow / sleet / ice pellets (including sleet showers)
-	if (
-		[
-			1066, 1069, 1072, 1114, 1117, 1210, 1213, 1216, 1219, 1222, 1225, 1237,
-			1249, 1252, 1255, 1258, 1261, 1264, 1279, 1282,
-		].includes(code)
-	)
-		return "snow";
-	return "unknown";
+  // Clear / sunny
+  if (code === 1000) return "clear";
+  // Partly cloudy
+  if (code === 1003) return "partly_cloudy";
+  // Cloudy / overcast
+  if (code === 1006) return "cloudy";
+  if (code === 1009) return "overcast";
+  // Fog / mist
+  if ([1030, 1135, 1147].includes(code)) return "fog";
+  // Drizzle / light rain-ish
+  if ([1150, 1153, 1168, 1171, 1180, 1183].includes(code)) return "drizzle";
+  // Rain (including showers, thunder with rain, excluding sleet)
+  if (
+    [1063, 1186, 1189, 1192, 1195, 1240, 1243, 1246, 1273, 1276].includes(code)
+  )
+    return "rain";
+  // Snow / sleet / ice pellets (including sleet showers)
+  if (
+    [
+      1066, 1069, 1072, 1114, 1117, 1210, 1213, 1216, 1219, 1222, 1225, 1237,
+      1249, 1252, 1255, 1258, 1261, 1264, 1279, 1282,
+    ].includes(code)
+  )
+    return "snow";
+  return "unknown";
 }
 
 /**
@@ -41,49 +41,49 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
  * Handles both string and number types as WeatherAPI sometimes returns strings
  */
 function parseAndClampPrecipitationProbability(
-	value: unknown,
-	fieldName: string,
+  value: unknown,
+  fieldName: string,
 ): number {
-	let parsed: number;
+  let parsed: number;
 
-	if (typeof value === "number") {
-		parsed = value;
-	} else if (typeof value === "string") {
-		parsed = parseFloat(value);
-	} else {
-		logger.error("Invalid WeatherAPI precipitation probability type", {
-			operation: "api_response_validation",
-			field: fieldName,
-			valueType: typeof value,
-		});
-		throw new HttpError(
-			HTTP_STATUS.BAD_GATEWAY,
-			`Invalid WeatherAPI response: ${fieldName} must be number or string`,
-			{
-				code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
-				details: { field: fieldName, valueType: typeof value },
-			},
-		);
-	}
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string") {
+    parsed = parseFloat(value);
+  } else {
+    logger.error("Invalid WeatherAPI precipitation probability type", {
+      operation: "api_response_validation",
+      field: fieldName,
+      valueType: typeof value,
+    });
+    throw new HttpError(
+      HTTP_STATUS.BAD_GATEWAY,
+      `Invalid WeatherAPI response: ${fieldName} must be number or string`,
+      {
+        code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+        details: { field: fieldName, valueType: typeof value },
+      },
+    );
+  }
 
-	if (Number.isNaN(parsed)) {
-		logger.error("Invalid WeatherAPI precipitation probability value", {
-			operation: "api_response_validation",
-			field: fieldName,
-			value,
-		});
-		throw new HttpError(
-			HTTP_STATUS.BAD_GATEWAY,
-			`Invalid WeatherAPI response: ${fieldName} is not a valid number`,
-			{
-				code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
-				details: { field: fieldName, value },
-			},
-		);
-	}
+  if (Number.isNaN(parsed)) {
+    logger.error("Invalid WeatherAPI precipitation probability value", {
+      operation: "api_response_validation",
+      field: fieldName,
+      value,
+    });
+    throw new HttpError(
+      HTTP_STATUS.BAD_GATEWAY,
+      `Invalid WeatherAPI response: ${fieldName} is not a valid number`,
+      {
+        code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+        details: { field: fieldName, value },
+      },
+    );
+  }
 
-	// Clamp to 0-100 range
-	return Math.max(0, Math.min(100, parsed));
+  // Clamp to 0-100 range
+  return Math.max(0, Math.min(100, parsed));
 }
 
 /**
@@ -91,455 +91,455 @@ function parseAndClampPrecipitationProbability(
  * Used internally to carry status/body through retry and error-handling logic.
  */
 class FetchHttpError extends Error {
-	readonly status: number;
-	readonly statusText: string;
-	readonly data: any;
+  readonly status: number;
+  readonly statusText: string;
+  readonly data: any;
 
-	constructor(status: number, statusText: string, data: any) {
-		super(`HTTP ${status}: ${statusText}`);
-		this.name = "FetchHttpError";
-		this.status = status;
-		this.statusText = statusText;
-		this.data = data;
-	}
+  constructor(status: number, statusText: string, data: any) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "FetchHttpError";
+    this.status = status;
+    this.statusText = statusText;
+    this.data = data;
+  }
 }
 
 export class WeatherApiWeatherRepository implements WeatherRepository {
-	private readonly apiKey?: string;
+  private readonly apiKey?: string;
 
-	constructor(kv?: KVNamespace, apiKey?: string) {
-		this.apiKey = apiKey;
-		logger.info("WeatherApiWeatherRepository initialized", {
-			operation: "repository_init",
-			cacheEnabled: !!kv,
-			cacheExpirationHours: APP_CONFIG.CACHE_EXPIRATION_HOURS,
-		});
-	}
+  constructor(kv?: KVNamespace, apiKey?: string) {
+    this.apiKey = apiKey;
+    logger.info("WeatherApiWeatherRepository initialized", {
+      operation: "repository_init",
+      cacheEnabled: !!kv,
+      cacheExpirationHours: APP_CONFIG.CACHE_EXPIRATION_HOURS,
+    });
+  }
 
-	private getApiKey(): string {
-		let key = this.apiKey;
+  private getApiKey(): string {
+    let key = this.apiKey;
 
-		if (!key && typeof process !== "undefined" && process.env) {
-			key = process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
-		}
+    if (!key && typeof process !== "undefined" && process.env) {
+      key = process.env.WEATHERAPI_KEY || process.env.WEATHER_API_KEY;
+    }
 
-		if (!key) {
-			throw new Error(
-				"WeatherAPI key not found. Provide apiKey parameter or set WEATHERAPI_KEY environment variable.",
-			);
-		}
-		return key;
-	}
+    if (!key) {
+      throw new Error(
+        "WeatherAPI key not found. Provide apiKey parameter or set WEATHERAPI_KEY environment variable.",
+      );
+    }
+    return key;
+  }
 
-	async getWeather(
-		lat: number,
-		lon: number,
-		datetime: string,
-	): Promise<Weather> {
-		return this.fetchFromApi(lat, lon, datetime);
-	}
+  async getWeather(
+    lat: number,
+    lon: number,
+    datetime: string,
+  ): Promise<Weather> {
+    return this.fetchFromApi(lat, lon, datetime);
+  }
 
-	private async fetchFromApi(
-		lat: number,
-		lon: number,
-		datetime: string,
-	): Promise<Weather> {
-		const key = this.getApiKey();
+  private async fetchFromApi(
+    lat: number,
+    lon: number,
+    datetime: string,
+  ): Promise<Weather> {
+    const key = this.getApiKey();
 
-		// Extract date from datetime (YYYY-MM-DD format)
-		const targetDate = datetime.split("T")[0];
-		const today = new Date().toISOString().split("T")[0];
+    // Extract date from datetime (YYYY-MM-DD format)
+    const targetDate = datetime.split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
 
-		// Determine which API endpoint to use based on date
-		const isHistorical = targetDate < today;
-		const isForecast = targetDate >= today;
+    // Determine which API endpoint to use based on date
+    const isHistorical = targetDate < today;
+    const isForecast = targetDate >= today;
 
-		// WeatherAPI forecast supports up to 14 days in the future
-		const maxForecastDate = new Date();
-		maxForecastDate.setDate(maxForecastDate.getDate() + 14);
-		const maxForecastDateStr = maxForecastDate.toISOString().split("T")[0];
+    // WeatherAPI forecast supports up to 14 days in the future
+    const maxForecastDate = new Date();
+    maxForecastDate.setDate(maxForecastDate.getDate() + 14);
+    const maxForecastDateStr = maxForecastDate.toISOString().split("T")[0];
 
-		let url: string;
-		let params: Record<string, string>;
+    let url: string;
+    let params: Record<string, string>;
 
-		if (isHistorical) {
-			// Use history API for past dates
-			url = "https://api.weatherapi.com/v1/history.json";
-			params = {
-				key,
-				q: `${lat},${lon}`,
-				dt: targetDate,
-				aqi: "no",
-			};
-		} else if (isForecast && targetDate <= maxForecastDateStr) {
-			// Use forecast API for today and future dates (up to 14 days)
-			url = "https://api.weatherapi.com/v1/forecast.json";
+    if (isHistorical) {
+      // Use history API for past dates
+      url = "https://api.weatherapi.com/v1/history.json";
+      params = {
+        key,
+        q: `${lat},${lon}`,
+        dt: targetDate,
+        aqi: "no",
+      };
+    } else if (isForecast && targetDate <= maxForecastDateStr) {
+      // Use forecast API for today and future dates (up to 14 days)
+      url = "https://api.weatherapi.com/v1/forecast.json";
 
-			// Normalize both dates to UTC midnight for accurate day difference calculation
-			const [targetYear, targetMonth, targetDay] = targetDate
-				.split("-")
-				.map(Number);
-			const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+      // Normalize both dates to UTC midnight for accurate day difference calculation
+      const [targetYear, targetMonth, targetDay] = targetDate
+        .split("-")
+        .map(Number);
+      const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
 
-			const targetMidnight = new Date(
-				Date.UTC(targetYear, targetMonth - 1, targetDay),
-			);
-			const todayMidnight = new Date(
-				Date.UTC(todayYear, todayMonth - 1, todayDay),
-			);
+      const targetMidnight = new Date(
+        Date.UTC(targetYear, targetMonth - 1, targetDay),
+      );
+      const todayMidnight = new Date(
+        Date.UTC(todayYear, todayMonth - 1, todayDay),
+      );
 
-			const msPerDay = 24 * 60 * 60 * 1000;
-			const diffDays = Math.round(
-				(targetMidnight.getTime() - todayMidnight.getTime()) / msPerDay,
-			);
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.round(
+        (targetMidnight.getTime() - todayMidnight.getTime()) / msPerDay,
+      );
 
-			// Clamp to API limits: minimum 1 day, maximum 14 days
-			const days = Math.min(14, Math.max(1, diffDays + 1));
+      // Clamp to API limits: minimum 1 day, maximum 14 days
+      const days = Math.min(14, Math.max(1, diffDays + 1));
 
-			params = {
-				key,
-				q: `${lat},${lon}`,
-				days: String(days),
-				dt: targetDate,
-				aqi: "no",
-				alerts: "no",
-			};
-		} else {
-			// Date is too far in the future, fall back to history API
-			throw new Error(
-				`Date ${targetDate} is beyond WeatherAPI forecast range (max 14 days from today)`,
-			);
-		}
+      params = {
+        key,
+        q: `${lat},${lon}`,
+        days: String(days),
+        dt: targetDate,
+        aqi: "no",
+        alerts: "no",
+      };
+    } else {
+      // Date is too far in the future, fall back to history API
+      throw new Error(
+        `Date ${targetDate} is beyond WeatherAPI forecast range (max 14 days from today)`,
+      );
+    }
 
-		logger.externalApiCall("WeatherAPI", url, {
-			operation: "fetch_weather_api",
-			params: {
-				q: params.q,
-				dt: targetDate,
-				endpoint: isHistorical ? "history" : "forecast",
-			},
-		});
+    logger.externalApiCall("WeatherAPI", url, {
+      operation: "fetch_weather_api",
+      params: {
+        q: params.q,
+        dt: targetDate,
+        endpoint: isHistorical ? "history" : "forecast",
+      },
+    });
 
-		// Request with exponential backoff (no retry for 429 or other 4xx)
-		const maxRetries = 3;
-		const baseDelayMs = 300; // start small to avoid unnecessary load
-		const capMs = 3000; // keep within a reasonable upper bound
+    // Request with exponential backoff (no retry for 429 or other 4xx)
+    const maxRetries = 3;
+    const baseDelayMs = 300; // start small to avoid unnecessary load
+    const capMs = 3000; // keep within a reasonable upper bound
 
-		const shouldRetry = (err: unknown) => {
-			if (err instanceof FetchHttpError) {
-				const status = err.status;
-				// Do not retry on 429 (rate limit) or other 4xx (considered fatal)
-				if (status === 429 || (status >= 400 && status < 500)) {
-					return false;
-				}
-			}
-			// Retry on network errors/timeouts and 5xx
-			return true;
-		};
+    const shouldRetry = (err: unknown) => {
+      if (err instanceof FetchHttpError) {
+        const status = err.status;
+        // Do not retry on 429 (rate limit) or other 4xx (considered fatal)
+        if (status === 429 || (status >= 400 && status < 500)) {
+          return false;
+        }
+      }
+      // Retry on network errors/timeouts and 5xx
+      return true;
+    };
 
-		const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-		const requestWithBackoff = async (): Promise<{
-			status: number;
-			data: any;
-		}> => {
-			let attempt = 0;
-			const fullUrl = `${url}?${new URLSearchParams(params).toString()}`;
-			// First attempt + retries up to maxRetries
-			while (true) {
-				const startedAt = Date.now();
-				try {
-					const response = await fetch(fullUrl);
-					const data = await response.json();
+    const requestWithBackoff = async (): Promise<{
+      status: number;
+      data: any;
+    }> => {
+      let attempt = 0;
+      const fullUrl = `${url}?${new URLSearchParams(params).toString()}`;
+      // First attempt + retries up to maxRetries
+      while (true) {
+        const startedAt = Date.now();
+        try {
+          const response = await fetch(fullUrl);
+          const data = await response.json();
 
-					if (!response.ok) {
-						throw new FetchHttpError(
-							response.status,
-							response.statusText,
-							data,
-						);
-					}
+          if (!response.ok) {
+            throw new FetchHttpError(
+              response.status,
+              response.statusText,
+              data,
+            );
+          }
 
-					const apiDuration = Date.now() - startedAt;
-					logger.externalApiResponse(
-						"WeatherAPI",
-						url,
-						response.status,
-						apiDuration,
-						{
-							responseSize: JSON.stringify(data).length,
-							attempt,
-						},
-					);
-					return { status: response.status, data };
-				} catch (e) {
-					const status = e instanceof FetchHttpError ? e.status : undefined;
-					const statusText =
-						e instanceof FetchHttpError ? e.statusText : undefined;
-					const canRetry = shouldRetry(e) && attempt < maxRetries;
-					logger.warn(
-						"WeatherAPI request error",
-						{
-							operation: "api_request_error",
-							attempt,
-							willRetry: canRetry,
-							statusCode: status,
-							statusText,
-							errorCode: e instanceof Error ? e.name : undefined,
-							url,
-						},
-						e instanceof Error ? e : undefined,
-					);
+          const apiDuration = Date.now() - startedAt;
+          logger.externalApiResponse(
+            "WeatherAPI",
+            url,
+            response.status,
+            apiDuration,
+            {
+              responseSize: JSON.stringify(data).length,
+              attempt,
+            },
+          );
+          return { status: response.status, data };
+        } catch (e) {
+          const status = e instanceof FetchHttpError ? e.status : undefined;
+          const statusText =
+            e instanceof FetchHttpError ? e.statusText : undefined;
+          const canRetry = shouldRetry(e) && attempt < maxRetries;
+          logger.warn(
+            "WeatherAPI request error",
+            {
+              operation: "api_request_error",
+              attempt,
+              willRetry: canRetry,
+              statusCode: status,
+              statusText,
+              errorCode: e instanceof Error ? e.name : undefined,
+              url,
+            },
+            e instanceof Error ? e : undefined,
+          );
 
-					if (!canRetry) throw e;
+          if (!canRetry) throw e;
 
-					// Exponential backoff with full jitter
-					const backoff = Math.min(capMs, baseDelayMs * 2 ** attempt);
-					const delay = Math.floor(Math.random() * backoff);
-					await sleep(delay);
-					attempt += 1;
-				}
-			}
-		};
+          // Exponential backoff with full jitter
+          const backoff = Math.min(capMs, baseDelayMs * 2 ** attempt);
+          const delay = Math.floor(Math.random() * backoff);
+          await sleep(delay);
+          attempt += 1;
+        }
+      }
+    };
 
-		try {
-			const res = await requestWithBackoff();
+    try {
+      const res = await requestWithBackoff();
 
-			// Parse response based on endpoint type
-			let day: any;
-			if (isHistorical) {
-				day = res.data?.forecast?.forecastday?.[0]?.day;
-			} else {
-				// For forecast, find the specific day we requested
-				const forecastDays = res.data?.forecast?.forecastday;
-				if (forecastDays && Array.isArray(forecastDays)) {
-					const targetDay = forecastDays.find(
-						(d: any) => d.date === targetDate,
-					);
-					day = targetDay?.day;
-				} else {
-					day = res.data?.forecast?.forecastday?.[0]?.day;
-				}
-			}
+      // Parse response based on endpoint type
+      let day: any;
+      if (isHistorical) {
+        day = res.data?.forecast?.forecastday?.[0]?.day;
+      } else {
+        // For forecast, find the specific day we requested
+        const forecastDays = res.data?.forecast?.forecastday;
+        if (forecastDays && Array.isArray(forecastDays)) {
+          const targetDay = forecastDays.find(
+            (d: any) => d.date === targetDate,
+          );
+          day = targetDay?.day;
+        } else {
+          day = res.data?.forecast?.forecastday?.[0]?.day;
+        }
+      }
 
-			if (!day) {
-				const noDataContext = {
-					operation: "api_response_validation",
-					failurePoint: "day_data_not_found",
-					missing: "forecast.forecastday[].day",
-					endpoint: isHistorical ? "history" : "forecast",
-					location: { lat, lon },
-					targetDate,
-					upstreamResponse: res.data,
-				};
-				logger.warn(
-					"WeatherAPI returned no day data for requested coordinates/date",
-					noDataContext,
-				);
-				throw new HttpError(
-					HTTP_STATUS.NOT_FOUND,
-					"Weather data is unavailable for the specified coordinates/date",
-					{
-						code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
-						details: noDataContext,
-					},
-				);
-			}
+      if (!day) {
+        const noDataContext = {
+          operation: "api_response_validation",
+          failurePoint: "day_data_not_found",
+          missing: "forecast.forecastday[].day",
+          endpoint: isHistorical ? "history" : "forecast",
+          location: { lat, lon },
+          targetDate,
+          upstreamResponse: res.data,
+        };
+        logger.warn(
+          "WeatherAPI returned no day data for requested coordinates/date",
+          noDataContext,
+        );
+        throw new HttpError(
+          HTTP_STATUS.NOT_FOUND,
+          "Weather data is unavailable for the specified coordinates/date",
+          {
+            code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
+            details: noDataContext,
+          },
+        );
+      }
 
-			// Validate required numeric fields; do not silently fallback
-			const numericFields: Array<[string, unknown]> = [
-				["avgtemp_c", day.avgtemp_c],
-				["maxwind_kph", day.maxwind_kph],
-				["avghumidity", day.avghumidity],
-				["uv", day.uv],
-			];
-			for (const [name, value] of numericFields) {
-				if (typeof value !== "number" || Number.isNaN(value)) {
-					logger.error("Invalid WeatherAPI response value", {
-						operation: "api_response_validation",
-						failurePoint: "numeric_field_validation",
-						field: name,
-						valueType: typeof value,
-						location: { lat, lon },
-						targetDate,
-					});
-					throw new HttpError(
-						HTTP_STATUS.BAD_GATEWAY,
-						`Invalid WeatherAPI response: ${name}`,
-						{
-							code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
-							details: { field: name, location: { lat, lon }, targetDate },
-						},
-					);
-				}
-			}
+      // Validate required numeric fields; do not silently fallback
+      const numericFields: Array<[string, unknown]> = [
+        ["avgtemp_c", day.avgtemp_c],
+        ["maxwind_kph", day.maxwind_kph],
+        ["avghumidity", day.avghumidity],
+        ["uv", day.uv],
+      ];
+      for (const [name, value] of numericFields) {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          logger.error("Invalid WeatherAPI response value", {
+            operation: "api_response_validation",
+            failurePoint: "numeric_field_validation",
+            field: name,
+            valueType: typeof value,
+            location: { lat, lon },
+            targetDate,
+          });
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            `Invalid WeatherAPI response: ${name}`,
+            {
+              code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+              details: { field: name, location: { lat, lon }, targetDate },
+            },
+          );
+        }
+      }
 
-			// Handle daily_chance_of_rain separately as it can be a string
-			const precipitationProbability = parseAndClampPrecipitationProbability(
-				day.daily_chance_of_rain,
-				"daily_chance_of_rain",
-			);
+      // Handle daily_chance_of_rain separately as it can be a string
+      const precipitationProbability = parseAndClampPrecipitationProbability(
+        day.daily_chance_of_rain,
+        "daily_chance_of_rain",
+      );
 
-			const conditionCode: number | undefined = day?.condition?.code;
-			const condition: WeatherCondition = conditionCode
-				? mapWeatherApiCodeToCondition(conditionCode)
-				: "unknown";
+      const conditionCode: number | undefined = day?.condition?.code;
+      const condition: WeatherCondition = conditionCode
+        ? mapWeatherApiCodeToCondition(conditionCode)
+        : "unknown";
 
-			const weather: Weather = {
-				// Preserve requested datetime as existing behavior does
-				datetime,
-				condition,
-				temperature: day.avgtemp_c,
-				// WeatherAPI kph -> m/s
-				windSpeed: day.maxwind_kph / 3.6,
-				humidity: day.avghumidity,
-				visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
-				precipitationProbability: precipitationProbability,
-				uvIndex: day.uv,
-			};
+      const weather: Weather = {
+        // Preserve requested datetime as existing behavior does
+        datetime,
+        condition,
+        temperature: day.avgtemp_c,
+        // WeatherAPI kph -> m/s
+        windSpeed: day.maxwind_kph / 3.6,
+        humidity: day.avghumidity,
+        visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
+        precipitationProbability: precipitationProbability,
+        uvIndex: day.uv,
+      };
 
-			return weather;
-		} catch (error) {
-			if (error instanceof HttpError) {
-				throw error;
-			}
+      return weather;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
 
-			if (error instanceof FetchHttpError) {
-				const upstreamCode = error.data?.error?.code;
-				const upstreamMessage = error.data?.error?.message;
-				const errorContext = {
-					operation: "api_request_error",
-					failurePoint: "weatherapi_request",
-					location: { lat, lon },
-					targetDate,
-					statusCode: error.status,
-					statusText: error.statusText,
-					upstreamCode,
-					upstreamMessage,
-					upstreamResponse: error.data,
-					errorCode: error.name,
-					url,
-				};
+      if (error instanceof FetchHttpError) {
+        const upstreamCode = error.data?.error?.code;
+        const upstreamMessage = error.data?.error?.message;
+        const errorContext = {
+          operation: "api_request_error",
+          failurePoint: "weatherapi_request",
+          location: { lat, lon },
+          targetDate,
+          statusCode: error.status,
+          statusText: error.statusText,
+          upstreamCode,
+          upstreamMessage,
+          upstreamResponse: error.data,
+          errorCode: error.name,
+          url,
+        };
 
-				logger.error("WeatherAPI request failed", errorContext, error);
+        logger.error("WeatherAPI request failed", errorContext, error);
 
-				if (error.status === HTTP_STATUS.BAD_REQUEST && upstreamCode === 1006) {
-					throw new HttpError(
-						HTTP_STATUS.NOT_FOUND,
-						"Weather data is unavailable for the specified coordinates/date",
-						{
-							code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
-							details: errorContext,
-							cause: error,
-						},
-					);
-				}
+        if (error.status === HTTP_STATUS.BAD_REQUEST && upstreamCode === 1006) {
+          throw new HttpError(
+            HTTP_STATUS.NOT_FOUND,
+            "Weather data is unavailable for the specified coordinates/date",
+            {
+              code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
 
-				if (error.status >= 400 && error.status < 500) {
-					throw new HttpError(
-						HTTP_STATUS.BAD_GATEWAY,
-						"Failed to retrieve valid weather data from upstream provider",
-						{
-							code: ERROR_CODES.WEATHER_UPSTREAM_CLIENT_ERROR,
-							details: errorContext,
-							cause: error,
-						},
-					);
-				}
+        if (error.status >= 400 && error.status < 500) {
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            "Failed to retrieve valid weather data from upstream provider",
+            {
+              code: ERROR_CODES.WEATHER_UPSTREAM_CLIENT_ERROR,
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
 
-				throw new HttpError(
-					HTTP_STATUS.SERVICE_UNAVAILABLE,
-					"Weather provider is unavailable",
-					{
-						code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
-						details: errorContext,
-						cause: error,
-					},
-				);
-			}
+        throw new HttpError(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Weather provider is unavailable",
+          {
+            code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
+            details: errorContext,
+            cause: error,
+          },
+        );
+      }
 
-			// Network errors (TypeError) and timeouts (AbortError)
-			if (error instanceof Error) {
-				const errorContext = {
-					operation: "api_request_error",
-					failurePoint: "weatherapi_request",
-					location: { lat, lon },
-					targetDate,
-					errorCode: error.name,
-					url,
-				};
+      // Network errors (TypeError) and timeouts (AbortError)
+      if (error instanceof Error) {
+        const errorContext = {
+          operation: "api_request_error",
+          failurePoint: "weatherapi_request",
+          location: { lat, lon },
+          targetDate,
+          errorCode: error.name,
+          url,
+        };
 
-				logger.error("WeatherAPI request failed", errorContext, error);
+        logger.error("WeatherAPI request failed", errorContext, error);
 
-				if (error.name === "AbortError") {
-					throw new HttpError(
-						HTTP_STATUS.GATEWAY_TIMEOUT,
-						"Weather provider request timed out",
-						{
-							code: ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT,
-							details: errorContext,
-							cause: error,
-						},
-					);
-				}
+        if (error.name === "AbortError") {
+          throw new HttpError(
+            HTTP_STATUS.GATEWAY_TIMEOUT,
+            "Weather provider request timed out",
+            {
+              code: ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT,
+              details: errorContext,
+              cause: error,
+            },
+          );
+        }
 
-				throw new HttpError(
-					HTTP_STATUS.SERVICE_UNAVAILABLE,
-					"Weather provider is unavailable",
-					{
-						code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
-						details: errorContext,
-						cause: error,
-					},
-				);
-			}
+        throw new HttpError(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Weather provider is unavailable",
+          {
+            code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE,
+            details: errorContext,
+            cause: error,
+          },
+        );
+      }
 
-			throw error;
-		}
-	}
+      throw error;
+    }
+  }
 
-	async getWeatherBatch(
-		lat: number,
-		lon: number,
-		startDate: string,
-		endDate: string,
-	): Promise<Weather[]> {
-		// Build an array of dates inclusively
-		const start = new Date(`${startDate}T00:00:00Z`);
-		const end = new Date(`${endDate}T00:00:00Z`);
+  async getWeatherBatch(
+    lat: number,
+    lon: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<Weather[]> {
+    // Build an array of dates inclusively
+    const start = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
 
-		// Validate that both dates are valid
-		if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-			throw new Error("Invalid date range for getWeatherBatch");
-		}
+    // Validate that both dates are valid
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new Error("Invalid date range for getWeatherBatch");
+    }
 
-		// Validate that start <= end
-		if (start.getTime() > end.getTime()) {
-			throw new Error("Start date must be less than or equal to end date");
-		}
+    // Validate that start <= end
+    if (start.getTime() > end.getTime()) {
+      throw new Error("Start date must be less than or equal to end date");
+    }
 
-		const days: string[] = [];
-		// Include the range inclusively: start <= date <= end
-		for (
-			let d = new Date(start);
-			d.getTime() <= end.getTime();
-			d.setUTCDate(d.getUTCDate() + 1)
-		) {
-			days.push(d.toISOString().slice(0, 10));
-		}
+    const days: string[] = [];
+    // Include the range inclusively: start <= date <= end
+    for (
+      let d = new Date(start);
+      d.getTime() <= end.getTime();
+      d.setUTCDate(d.getUTCDate() + 1)
+    ) {
+      days.push(d.toISOString().slice(0, 10));
+    }
 
-		// Safety check: return empty array if no days were generated
-		if (days.length === 0) {
-			return [];
-		}
+    // Safety check: return empty array if no days were generated
+    if (days.length === 0) {
+      return [];
+    }
 
-		// Fetch weather data individually for each date
-		const results: Weather[] = [];
-		for (const dateStr of days) {
-			const weather = await this.getWeather(lat, lon, `${dateStr}T03:00:00Z`); // 12:00 JST = 03:00 UTC
-			results.push(weather);
-		}
+    // Fetch weather data individually for each date
+    const results: Weather[] = [];
+    for (const dateStr of days) {
+      const weather = await this.getWeather(lat, lon, `${dateStr}T03:00:00Z`); // 12:00 JST = 03:00 UTC
+      results.push(weather);
+    }
 
-		return results;
-	}
+    return results;
+  }
 }
