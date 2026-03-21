@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { Context } from "hono";
 import { ZodError } from "zod";
 import { HTTP_STATUS } from "../../constants/httpStatus";
+import { HttpError } from "../../domain/HttpError";
 import { getTouringIndexHistory } from "./touringIndexHandler";
 
 // Mock dependencies
@@ -308,125 +309,32 @@ describe("getTouringIndexHistory", () => {
   });
 
   describe("error cases", () => {
-    test("should return 400 for invalid latitude", async () => {
+    // Validation errors (ZodError) now propagate to app.onError.
+    // Handler unit tests verify the error IS thrown; response format is
+    // tested at the integration level (router.coordinateErrorHandling.test.ts).
+
+    test("should throw ZodError for invalid parameters", async () => {
       (mockContext.req as any).query = createQueryMock({
         lat: "invalid",
         lon: "139.6503",
       });
 
-      // Mock ZodError for invalid latitude
-      const zodError = new ZodError([
-        {
-          code: "custom",
-          path: ["lat"],
-          message: "lat must be a valid number",
-        },
-      ]);
-
       mockGetTouringIndexHistorySchema.parse.mockImplementation(() => {
-        throw zodError;
+        throw new ZodError([
+          {
+            code: "custom",
+            path: ["lat"],
+            message: "lat must be a valid number",
+          },
+        ]);
       });
 
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toContain(
-        "lat must be a valid number",
-      );
+      await expect(
+        getTouringIndexHistory(mockContext as Context),
+      ).rejects.toBeInstanceOf(ZodError);
     });
 
-    test("should return 400 for invalid longitude", async () => {
-      (mockContext.req as any).query = createQueryMock({
-        lat: "35.6762",
-        lon: "200", // Invalid longitude
-      });
-
-      // Mock ZodError for invalid longitude
-      const zodError = new ZodError([
-        {
-          code: "custom",
-          path: ["lon"],
-          message: "lon must be between -180 and 180",
-        },
-      ]);
-
-      mockGetTouringIndexHistorySchema.parse.mockImplementation(() => {
-        throw zodError;
-      });
-
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toContain(
-        "lon must be between -180 and 180",
-      );
-    });
-
-    test("should return 400 for invalid prefectureId", async () => {
-      (mockContext.req as any).query = createQueryMock({
-        lat: "35.6762",
-        lon: "139.6503",
-        prefectureId: "50", // Invalid prefecture ID
-      });
-
-      // Mock ZodError for invalid prefectureId
-      const zodError = new ZodError([
-        {
-          code: "custom",
-          path: ["prefectureId"],
-          message: "prefectureId must be between 1 and 47",
-        },
-      ]);
-
-      mockGetTouringIndexHistorySchema.parse.mockImplementation(() => {
-        throw zodError;
-      });
-
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toContain(
-        "prefectureId must be between 1 and 47",
-      );
-    });
-
-    test("should return 400 for invalid date format", async () => {
-      (mockContext.req as any).query = createQueryMock({
-        lat: "35.6762",
-        lon: "139.6503",
-        startDate: "invalid-date",
-      });
-
-      // Mock ZodError for invalid date format
-      const zodError = new ZodError([
-        {
-          code: "custom",
-          path: ["startDate"],
-          message: "startDate must be in YYYY-MM-DD format",
-        },
-      ]);
-
-      mockGetTouringIndexHistorySchema.parse.mockImplementation(() => {
-        throw zodError;
-      });
-
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toContain(
-        "startDate must be in YYYY-MM-DD format",
-      );
-    });
-
-    test("should return 400 for invalid date range", async () => {
+    test("should throw HttpError(400) for invalid date range", async () => {
       (mockContext.req as any).query = createQueryMock({
         lat: "35.6762",
         lon: "139.6503",
@@ -446,17 +354,15 @@ describe("getTouringIndexHistory", () => {
         throw new Error("startDate must be before endDate");
       });
 
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toBe(
-        "startDate must be before endDate",
+      const error = await getTouringIndexHistory(mockContext as Context).catch(
+        (e) => e,
       );
+      expect(error).toBeInstanceOf(HttpError);
+      expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+      expect(error.message).toBe("startDate must be before endDate");
     });
 
-    test("should return 400 for date range exceeding 16 days in future", async () => {
+    test("should throw HttpError(400) for date range exceeding 16 days in future", async () => {
       const today = new Date();
       const in20Days = new Date(today);
       in20Days.setDate(in20Days.getDate() + 20);
@@ -480,17 +386,17 @@ describe("getTouringIndexHistory", () => {
         throw new Error("endDate cannot be more than 16 days in the future");
       });
 
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect(capturedResponse.data.error).toBe(
+      const error = await getTouringIndexHistory(mockContext as Context).catch(
+        (e) => e,
+      );
+      expect(error).toBeInstanceOf(HttpError);
+      expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+      expect(error.message).toBe(
         "endDate cannot be more than 16 days in the future",
       );
     });
 
-    test("should return 500 when repository creation fails", async () => {
+    test("should throw when repository creation fails", async () => {
       mockCreateTouringIndexRepository.mockImplementation(() => {
         throw new Error("Failed to initialize repository");
       });
@@ -510,15 +416,12 @@ describe("getTouringIndexHistory", () => {
 
       mockValidateDateRange.mockImplementation(() => {});
 
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      expect(capturedResponse.data.error).toBe("Internal server error");
+      await expect(
+        getTouringIndexHistory(mockContext as Context),
+      ).rejects.toThrow("Failed to initialize repository");
     });
 
-    test("should return 500 when repository throws error", async () => {
+    test("should throw when repository throws error", async () => {
       (mockContext.req as any).query = createQueryMock({
         lat: "35.6762",
         lon: "139.6503",
@@ -538,12 +441,9 @@ describe("getTouringIndexHistory", () => {
         new Error("Database connection failed"),
       );
 
-      // Execute
-      await getTouringIndexHistory(mockContext as Context);
-
-      // Verify
-      expect(capturedResponse.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      expect(capturedResponse.data.error).toBe("Internal server error");
+      await expect(
+        getTouringIndexHistory(mockContext as Context),
+      ).rejects.toThrow("Database connection failed");
     });
 
     test("should handle invalid JSON in weather data gracefully", async () => {

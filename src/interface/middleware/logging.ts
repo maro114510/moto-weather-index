@@ -1,17 +1,11 @@
 import { factory } from "../../factory";
-import {
-  createRequestContext,
-  generateRequestId,
-  logger,
-} from "../../utils/logger";
+import { createRequestContext, logger } from "../../utils/logger";
 
 export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
-  // Generate unique request ID
-  const requestId = generateRequestId();
+  const requestId = c.get("requestId");
   const startTime = Date.now();
 
-  // Store in context for use in handlers
-  c.set("requestId", requestId);
+  // Store in context for use in handlers and app.onError
   c.set("startTime", startTime);
 
   // Create base request context
@@ -30,26 +24,16 @@ export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
   // Log incoming request
   logger.apiRequest(c.req.method, c.req.path, requestContext);
 
-  try {
-    await next();
-  } catch (error) {
-    // Log unhandled errors at middleware level
-    logger.error(
-      "Unhandled error in request processing",
-      requestContext,
-      error as Error,
-    );
+  await next();
 
-    // Re-throw to let error handling middleware deal with it
-    throw error;
-  } finally {
-    // Log response
-    const duration = Date.now() - startTime;
-    const statusCode = c.res.status;
+  // Log response — runs for both success and error cases.
+  // Hono's compose() resolves await next() after app.onError sets c.res,
+  // so c.res.status correctly reflects the error status code.
+  const duration = Date.now() - startTime;
+  const statusCode = c.res.status;
 
-    logger.apiResponse(c.req.method, c.req.path, statusCode, duration, {
-      ...requestContext,
-      responseSize: c.res.headers.get("content-length") || "unknown",
-    });
-  }
+  logger.apiResponse(c.req.method, c.req.path, statusCode, duration, {
+    ...requestContext,
+    responseSize: c.res.headers.get("content-length") || "unknown",
+  });
 });
