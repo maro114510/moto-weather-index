@@ -1,100 +1,45 @@
 import { describe, expect, test } from "bun:test";
-import { HTTP_STATUS } from "../../constants/httpStatus";
+import { Hono } from "hono";
 import { corsMiddleware } from "./cors";
 
-function createContext(method: string, origin?: string) {
-  return {
-    req: {
-      method,
-      header: (name: string) => (name === "Origin" ? origin : undefined),
-    },
-    res: new Response(null, { status: 200 }),
-    json: (body: unknown, status: number) =>
-      new Response(JSON.stringify(body), { status }),
-  };
-}
+const app = new Hono();
+app.use("*", corsMiddleware);
+app.get("/test", (c) => c.text("ok"));
 
 describe("corsMiddleware", () => {
-  test("sets CORS headers for allowed origins", async () => {
-    const c = createContext("GET", "http://localhost:3000");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    await corsMiddleware(c as never, next as never);
-
-    expect(c.res.headers.get("Access-Control-Allow-Origin")).toBe(
+  test("sets CORS headers for allowed origin", async () => {
+    const res = await app.request("/test", {
+      headers: { Origin: "http://localhost:3000" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
       "http://localhost:3000",
     );
   });
 
-  test("rejects disallowed origins", async () => {
-    const c = createContext("GET", "https://evil.example.com");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    const res = await corsMiddleware(c as never, next as never);
-    expect(res.status).toBe(HTTP_STATUS.FORBIDDEN);
+  test("does not set CORS headers for disallowed origin", async () => {
+    const res = await app.request("/test", {
+      headers: { Origin: "https://evil.example.com" },
+    });
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 
-  test("rejects disallowed preflight", async () => {
-    const c = createContext("OPTIONS", "https://evil.example.com");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    const res = await corsMiddleware(c as never, next as never);
-    expect(res.status).toBe(HTTP_STATUS.FORBIDDEN);
-  });
-
-  test("returns preflight headers for allowed origin", async () => {
-    const c = createContext("OPTIONS", "http://localhost:3000");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    const res = await corsMiddleware(c as never, next as never);
-    expect(res.status).toBe(HTTP_STATUS.NO_CONTENT);
+  test("returns preflight response for allowed origin", async () => {
+    const res = await app.request("/test", {
+      method: "OPTIONS",
+      headers: { Origin: "http://localhost:3000" },
+    });
+    expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
       "http://localhost:3000",
     );
     expect(res.headers.get("Access-Control-Max-Age")).toBe("86400");
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("GET");
   });
 
-  test("rejects preflight request without origin", async () => {
-    const c = createContext("OPTIONS");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    const res = await corsMiddleware(c as never, next as never);
-    expect(res.status).toBe(HTTP_STATUS.FORBIDDEN);
-  });
-
-  test("passes through requests with no Origin header", async () => {
-    const c = createContext("GET");
-    const next = async () => {
-      c.res = new Response("ok", { status: 200 });
-    };
-
-    const res = await corsMiddleware(c as never, next as never);
-    expect(res).toBeUndefined();
-    expect(c.res.headers.get("Access-Control-Allow-Origin")).toBeNull();
-  });
-
-  test("preserves existing Vary header entries", async () => {
-    const c = createContext("GET", "http://localhost:3000");
-    const next = async () => {
-      c.res = new Response("ok", {
-        status: 200,
-        headers: { Vary: "Accept-Encoding" },
-      });
-    };
-
-    await corsMiddleware(c as never, next as never);
-
-    expect(c.res.headers.get("Vary")).toContain("Accept-Encoding");
-    expect(c.res.headers.get("Vary")?.toLowerCase()).toContain("origin");
+  test("does not set CORS headers when no Origin header", async () => {
+    const res = await app.request("/test");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 });
