@@ -1,17 +1,11 @@
 import { factory } from "../../factory";
-import {
-  createRequestContext,
-  generateRequestId,
-  logger,
-} from "../../utils/logger";
+import { createRequestContext, logger } from "../../utils/logger";
 
 export const loggingMiddleware = factory.createMiddleware(async (c, next) => {
-  // Generate unique request ID
-  const requestId = generateRequestId();
+  const requestId = c.get("requestId");
   const startTime = Date.now();
 
   // Store in context for use in handlers
-  c.set("requestId", requestId);
   c.set("startTime", startTime);
 
   // Create base request context

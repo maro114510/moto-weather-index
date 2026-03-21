@@ -1,5 +1,6 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { requestId } from "hono/request-id";
 import type { AppEnv } from "../types/env";
 import { healthCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
@@ -23,6 +24,7 @@ export const app = new OpenAPIHono<AppEnv>();
 
 // Apply global middleware
 app.use("*", corsMiddleware);
+app.use("*", requestId());
 app.use("*", loggingMiddleware);
 app.use("*", errorHandlingMiddleware);
 
