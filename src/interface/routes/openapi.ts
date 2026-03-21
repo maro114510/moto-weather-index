@@ -1,5 +1,12 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { WeatherConditionSchema } from "../../domain/Weather";
+import {
+  ErrorResponseSchema,
+  HealthResponseSchema,
+  WeatherResponseSchema,
+  TouringIndexResponseSchema,
+  TouringIndexHistoryResponseSchema,
+  PrefectureListResponseSchema,
+} from "./schemas";
 
 // Health check route
 export const healthRoute = createRoute({
@@ -13,12 +20,7 @@ export const healthRoute = createRoute({
       description: "Health check successful",
       content: {
         "application/json": {
-          schema: z.object({
-            status: z.string().openapi({ example: "ok" }),
-            timestamp: z
-              .string()
-              .openapi({ example: "2024-01-01T00:00:00.000Z" }),
-          }),
+          schema: HealthResponseSchema,
         },
       },
     },
@@ -53,22 +55,7 @@ export const weatherRoute = createRoute({
       description: "Weather data retrieved successfully",
       content: {
         "application/json": {
-          schema: z.object({
-            datetime: z.string().openapi({ example: "2024-01-01T12:00:00Z" }),
-            condition: z
-              .enum(WeatherConditionSchema.options)
-              .openapi({ example: "clear" }),
-            temperature: z.number().openapi({ example: 25.5 }),
-            windSpeed: z.number().openapi({ example: 5.2 }),
-            humidity: z.number().openapi({ example: 60 }),
-            visibility: z.number().openapi({ example: 10 }),
-            precipitationProbability: z.number().openapi({ example: 20 }),
-            uvIndex: z.number().openapi({ example: 5 }),
-            airQuality: z
-              .enum(["low", "medium", "high"])
-              .optional()
-              .openapi({ example: "low" }),
-          }),
+          schema: WeatherResponseSchema,
         },
       },
     },
@@ -76,11 +63,7 @@ export const weatherRoute = createRoute({
       description: "Invalid query parameters",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z
-              .string()
-              .openapi({ example: "lat must be between -90 and 90" }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -88,12 +71,7 @@ export const weatherRoute = createRoute({
       description: "Weather data is unavailable for specified coordinates/date",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z.string().openapi({
-              example:
-                "Weather data is unavailable for the specified coordinates/date",
-            }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -129,23 +107,7 @@ export const touringIndexRoute = createRoute({
       description: "Touring index calculated successfully",
       content: {
         "application/json": {
-          schema: z.object({
-            location: z.object({
-              lat: z.number().openapi({ example: 35.6762 }),
-              lon: z.number().openapi({ example: 139.6503 }),
-            }),
-            datetime: z.string().openapi({ example: "2024-01-01T12:00:00Z" }),
-            score: z.number().openapi({ example: 85.5 }),
-            factors: z.record(z.string(), z.number()).openapi({
-              example: {
-                temperature: 20,
-                weather: 25,
-                wind: 15,
-                visibility: 10,
-                humidity: 15,
-              },
-            }),
-          }),
+          schema: TouringIndexResponseSchema,
         },
       },
     },
@@ -153,11 +115,7 @@ export const touringIndexRoute = createRoute({
       description: "Invalid query parameters",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z
-              .string()
-              .openapi({ example: "lat must be between -90 and 90" }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -165,12 +123,7 @@ export const touringIndexRoute = createRoute({
       description: "Weather data is unavailable for specified coordinates/date",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z.string().openapi({
-              example:
-                "Weather data is unavailable for the specified coordinates/date",
-            }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -217,31 +170,7 @@ export const touringIndexHistoryRoute = createRoute({
       description: "Historical touring index data retrieved successfully",
       content: {
         "application/json": {
-          schema: z.object({
-            location: z.object({
-              lat: z.number().openapi({ example: 35.6762 }),
-              lon: z.number().openapi({ example: 139.6503 }),
-            }),
-            prefecture_id: z.number().openapi({ example: 13 }),
-            data: z.array(
-              z.object({
-                date: z.string().openapi({ example: "2024-06-01" }),
-                score: z.number().openapi({ example: 85.5 }),
-                factors: z.record(z.string(), z.number()).openapi({
-                  example: {
-                    temperature: 20,
-                    weather: 25,
-                    wind: 15,
-                    visibility: 10,
-                    humidity: 15,
-                  },
-                }),
-                calculated_at: z
-                  .string()
-                  .openapi({ example: "2024-06-01T06:00:00Z" }),
-              }),
-            ),
-          }),
+          schema: TouringIndexHistoryResponseSchema,
         },
       },
     },
@@ -249,11 +178,7 @@ export const touringIndexHistoryRoute = createRoute({
       description: "Invalid query parameters",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z.string().openapi({
-              example: "Date range cannot exceed 30 days",
-            }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -261,11 +186,7 @@ export const touringIndexHistoryRoute = createRoute({
       description: "Internal server error",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z.string().openapi({
-              example: "Database not available",
-            }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
@@ -284,18 +205,7 @@ export const prefectureListRoute = createRoute({
       description: "Prefecture list retrieved successfully",
       content: {
         "application/json": {
-          schema: z.object({
-            prefectures: z.array(
-              z.object({
-                id: z.number().openapi({ example: 13 }),
-                name_ja: z.string().openapi({ example: "東京都" }),
-                name_en: z.string().openapi({ example: "Tokyo" }),
-                latitude: z.number().openapi({ example: 35.6762 }),
-                longitude: z.number().openapi({ example: 139.6503 }),
-              }),
-            ),
-            count: z.number().openapi({ example: 47 }),
-          }),
+          schema: PrefectureListResponseSchema,
         },
       },
     },
@@ -303,9 +213,7 @@ export const prefectureListRoute = createRoute({
       description: "Internal server error",
       content: {
         "application/json": {
-          schema: z.object({
-            error: z.string().openapi({ example: "Internal server error" }),
-          }),
+          schema: ErrorResponseSchema,
         },
       },
     },
