@@ -2,6 +2,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 import { HTTP_STATUS } from "../constants/httpStatus";
@@ -29,6 +30,7 @@ export const app = new OpenAPIHono<AppEnv>();
 
 // Apply global middleware
 app.use("*", corsMiddleware);
+app.use("*", secureHeaders());
 app.use("*", requestId());
 app.use("*", loggingMiddleware);
 
