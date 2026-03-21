@@ -3,22 +3,19 @@ import { WeatherApiWeatherRepository } from "../infra/WeatherApiWeatherRepositor
 import { BatchCalculateTouringIndexUsecase } from "../usecase/BatchCalculateTouringIndex";
 
 export function createWeatherRepository(kv?: KVNamespace, apiKey?: string) {
-  return new WeatherApiWeatherRepository(kv, apiKey);
+	return new WeatherApiWeatherRepository(kv, apiKey);
 }
 
 export function createTouringIndexRepository(db: D1Database) {
-  return new D1TouringIndexRepository(db);
+	return new D1TouringIndexRepository(db);
 }
 
 export function createBatchCalculateTouringIndexUsecase(
-  weatherRepository: ReturnType<typeof createWeatherRepository>,
-  touringIndexRepository: ReturnType<typeof createTouringIndexRepository>,
+	weatherRepository: ReturnType<typeof createWeatherRepository>,
+	touringIndexRepository: ReturnType<typeof createTouringIndexRepository>,
 ) {
-  return new BatchCalculateTouringIndexUsecase(
-    weatherRepository,
-    touringIndexRepository,
-  );
+	return new BatchCalculateTouringIndexUsecase(
+		weatherRepository,
+		touringIndexRepository,
+	);
 }
-
-// For backward compatibility
-export const weatherRepository = new WeatherApiWeatherRepository();
