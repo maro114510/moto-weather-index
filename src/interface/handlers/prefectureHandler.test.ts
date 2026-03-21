@@ -107,17 +107,17 @@ describe("prefectureHandler", () => {
         throw new Error("Failed to initialize repository");
       });
 
-      await expect(
-        getPrefectures(mockContext as Context),
-      ).rejects.toThrow("Failed to initialize repository");
+      await expect(getPrefectures(mockContext as Context)).rejects.toThrow(
+        "Failed to initialize repository",
+      );
     });
 
     test("should throw when repository query fails", async () => {
       mockRepo.getAllPrefectures.mockRejectedValue(new Error("Database error"));
 
-      await expect(
-        getPrefectures(mockContext as Context),
-      ).rejects.toThrow("Database error");
+      await expect(getPrefectures(mockContext as Context)).rejects.toThrow(
+        "Database error",
+      );
 
       expect(mockRepo.getAllPrefectures).toHaveBeenCalledTimes(1);
     });
