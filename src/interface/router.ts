@@ -151,6 +151,17 @@ app.onError((error, c) => {
   );
 });
 
+// Not Found handler — returns JSON consistent with onError responses.
+app.notFound((c) => {
+  return c.json(
+    {
+      error: "Not Found",
+      requestId: c.get("requestId"),
+    },
+    HTTP_STATUS.NOT_FOUND,
+  );
+});
+
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);
 app.openapi(weatherRoute, getWeather);
