@@ -1,24 +1,25 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { AppEnv } from "../types/env";
 import { healthCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
-  getTouringIndex,
-  getTouringIndexHistory,
+	getTouringIndex,
+	getTouringIndexHistory,
 } from "./handlers/touringIndexHandler";
 import { getWeather } from "./handlers/weatherHandler";
 import { corsMiddleware } from "./middleware/cors";
 import { errorHandlingMiddleware } from "./middleware/errorHandling";
 import { loggingMiddleware } from "./middleware/logging";
 import {
-  healthRoute,
-  prefectureListRoute,
-  touringIndexHistoryRoute,
-  touringIndexRoute,
-  weatherRoute,
+	healthRoute,
+	prefectureListRoute,
+	touringIndexHistoryRoute,
+	touringIndexRoute,
+	weatherRoute,
 } from "./routes/openapi";
 
-export const app = new OpenAPIHono();
+export const app = new OpenAPIHono<AppEnv>();
 
 // Apply global middleware
 app.use("*", corsMiddleware);
@@ -34,19 +35,19 @@ app.openapi(prefectureListRoute, getPrefectures);
 
 // OpenAPI documentation endpoint
 app.doc("/specification", {
-  openapi: "3.0.0",
-  info: {
-    title: "Moto Weather Index API",
-    version: "1.0.0",
-    description:
-      "API for calculating motorcycle touring weather index based on weather conditions",
-  },
-  servers: [
-    {
-      url: "http://localhost:3000",
-      description: "Development server",
-    },
-  ],
+	openapi: "3.0.0",
+	info: {
+		title: "Moto Weather Index API",
+		version: "1.0.0",
+		description:
+			"API for calculating motorcycle touring weather index based on weather conditions",
+	},
+	servers: [
+		{
+			url: "http://localhost:3000",
+			description: "Development server",
+		},
+	],
 });
 
 // Swagger UI endpoint
