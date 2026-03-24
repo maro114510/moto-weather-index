@@ -29,7 +29,7 @@ jobs:
           WEATHERAPI_KEY: ${{ secrets.WEATHERAPI_KEY }}
 
       - name: Deploy to Cloudflare Workers (with retry)
-        uses: nick-invision/retry@v3
+        uses: nick-invision/retry@v4
         with:
           timeout_minutes: 10
           max_attempts: 3
