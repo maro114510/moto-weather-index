@@ -45,9 +45,12 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
   const TARGET_DATE = d.toISOString().slice(0, 10);
   const DATETIME = `${TARGET_DATE}T03:00:00Z`;
 
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
   afterEach(() => {
-    // Restore fetch so integration tests are unaffected
-    (globalThis.fetch as any) = undefined;
+    globalThis.fetch = originalFetch;
   });
 
   test("code 1063 (Patchy rain possible) maps to drizzle", async () => {

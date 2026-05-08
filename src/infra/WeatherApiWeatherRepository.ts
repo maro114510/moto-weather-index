@@ -23,9 +23,7 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
   if ([1063, 1150, 1153, 1168, 1171, 1180, 1183].includes(code))
     return "drizzle";
   // Rain (moderate to heavy: showers, thunder with rain)
-  if (
-    [1186, 1189, 1192, 1195, 1240, 1243, 1246, 1273, 1276].includes(code)
-  )
+  if ([1186, 1189, 1192, 1195, 1240, 1243, 1246, 1273, 1276].includes(code))
     return "rain";
   // Snow / sleet / ice pellets (including sleet showers)
   if (
