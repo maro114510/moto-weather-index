@@ -72,6 +72,7 @@ export function weatherScore(condition: WeatherCondition): number {
     case "fog":
       return 5;
     case "drizzle":
+      return 8;
     case "rain":
     case "snow":
       return 0;
