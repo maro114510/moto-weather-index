@@ -54,7 +54,8 @@ const AirQualityLevelSchema = z.enum(["low", "medium", "high"]);
  * - 'cloudy': less ideal, partial score.
  * - 'overcast': overcast sky, reduced score.
  * - 'fog': poor visibility, very low score.
- * - 'drizzle'/'rain'/'snow': not suitable, 0 points.
+ * - 'drizzle': light/possible precipitation, 8 points (between fog and overcast).
+ * - 'rain'/'snow': not suitable, 0 points.
  * - 'unknown': fallback score, 10 points.
  */
 export function weatherScore(condition: WeatherCondition): number {
@@ -72,6 +73,7 @@ export function weatherScore(condition: WeatherCondition): number {
     case "fog":
       return 5;
     case "drizzle":
+      return 8;
     case "rain":
     case "snow":
       return 0;

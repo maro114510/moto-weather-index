@@ -1,5 +1,93 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildForecastResponse(conditionCode: number, targetDate: string) {
+  return {
+    forecast: {
+      forecastday: [
+        {
+          date: targetDate,
+          day: {
+            avgtemp_c: 20,
+            maxwind_kph: 10,
+            avghumidity: 60,
+            uv: 3,
+            daily_chance_of_rain: 30,
+            condition: { code: conditionCode },
+          },
+        },
+      ],
+    },
+  };
+}
+
+function mockFetch(body: object, status = 200) {
+  globalThis.fetch = mock(async () => {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as any;
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests — condition code mapping (via public interface, fetch mocked)
+// ---------------------------------------------------------------------------
+
+describe("WeatherApiWeatherRepository condition mapping", () => {
+  // Use a date 3 days from now — within the 14-day forecast window
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 3);
+  const TARGET_DATE = d.toISOString().slice(0, 10);
+  const DATETIME = `${TARGET_DATE}T03:00:00Z`;
+
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("code 1063 (Patchy rain possible) maps to drizzle", async () => {
+    mockFetch(buildForecastResponse(1063, TARGET_DATE));
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+    expect(weather.condition).toBe("drizzle");
+  });
+
+  test("code 1000 (Clear) maps to clear", async () => {
+    mockFetch(buildForecastResponse(1000, TARGET_DATE));
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+    expect(weather.condition).toBe("clear");
+  });
+
+  test("code 1189 (Moderate rain) maps to rain", async () => {
+    mockFetch(buildForecastResponse(1189, TARGET_DATE));
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+    expect(weather.condition).toBe("rain");
+  });
+
+  test("code 1183 (Light rain) maps to drizzle", async () => {
+    mockFetch(buildForecastResponse(1183, TARGET_DATE));
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+    expect(weather.condition).toBe("drizzle");
+  });
+
+  test("unknown code maps to unknown", async () => {
+    mockFetch(buildForecastResponse(9999, TARGET_DATE));
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+    expect(weather.condition).toBe("unknown");
+  });
+});
 
 // Helper function to calculate expected datetime format for daily data
 // Based on the implementation: noon JST (12:00) = 03:00 UTC
