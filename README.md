@@ -39,11 +39,16 @@ Touring Index = weatherScore + temperatureScore + windScore + humidityScore +
 #### Weather Condition Score (0-30 points)
 
 ```typescript
-clear: 30 points     // Perfect riding weather
-cloudy: 10 points    // Acceptable but less enjoyable
-rain: 0 points       // Unsafe for motorcycles
-snow: 0 points       // Dangerous conditions
-unknown: 0 points    // Uncertain conditions
+clear:        30 points  // Perfect riding weather
+mostly_clear: 28 points  // Near-ideal conditions
+partly_cloudy: 23 points // Good, some clouds
+cloudy:       15 points  // Acceptable but less enjoyable
+overcast:     12 points  // Grey sky, still rideable
+drizzle:       8 points  // Light/possible rain — manageable with gear
+fog:           5 points  // Reduced visibility
+rain:          0 points  // Unsafe for motorcycles
+snow:          0 points  // Dangerous conditions
+unknown:      10 points  // Fallback when condition cannot be determined
 ```
 
 #### Temperature Score (0-20 points)
