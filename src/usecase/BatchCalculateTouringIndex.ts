@@ -47,7 +47,7 @@ export interface WeatherRepository {
 }
 
 export interface TouringIndexRepository {
-  upsertTouringIndex(item: TouringIndexBatchItem): Promise<void>;
+  upsertTouringIndexes(items: TouringIndexBatchItem[]): Promise<number>;
   getAllPrefectures(): Promise<Prefecture[]>;
 }
 
@@ -115,9 +115,12 @@ export class BatchCalculateTouringIndexUsecase {
             prefectureContext,
           );
 
-          await this.processPrefectureBatch(prefecture, targetDates);
+          const committedInserts = await this.processPrefectureBatch(
+            prefecture,
+            targetDates,
+          );
 
-          result.successful_inserts += targetDates.length;
+          result.successful_inserts += committedInserts;
 
           logger.debug("Successfully processed prefecture batch", {
             ...prefectureContext,
@@ -192,7 +195,7 @@ export class BatchCalculateTouringIndexUsecase {
   private async processPrefectureBatch(
     prefecture: Prefecture,
     targetDates: string[],
-  ): Promise<void> {
+  ): Promise<number> {
     const context = {
       operation: "process_prefecture_batch",
       prefecture: {
@@ -231,7 +234,9 @@ export class BatchCalculateTouringIndexUsecase {
       weatherRecordsReceived: weatherDataList.length,
     });
 
-    // Process each date with its corresponding weather data
+    const batchItems: TouringIndexBatchItem[] = [];
+
+    // Calculate every record before publishing the prefecture range.
     for (let i = 0; i < targetDates.length; i++) {
       const date = targetDates[i];
       const weatherData = weatherDataList[i];
@@ -257,29 +262,27 @@ export class BatchCalculateTouringIndexUsecase {
         breakdown,
       });
 
-      // Prepare data for database insertion
-      const batchItem: TouringIndexBatchItem = {
+      batchItems.push({
         prefecture_id: prefecture.id,
         date,
         score,
         weather_factors_json: JSON.stringify(breakdown),
         weather_raw_json: JSON.stringify(weatherData),
-      };
-
-      logger.dbOperation("upsertTouringIndex", "touring_index", {
-        ...context,
-        date,
-        score,
       });
+    }
 
-      // Insert/update in database (upsert)
-      await this.touringIndexRepository.upsertTouringIndex(batchItem);
+    logger.dbOperation("upsertTouringIndexes", "touring_index", {
+      ...context,
+      recordsCount: batchItems.length,
+    });
 
-      logger.debug("Individual date processing completed successfully", {
-        ...context,
-        date,
-        score,
-      });
+    const committedInserts =
+      await this.touringIndexRepository.upsertTouringIndexes(batchItems);
+
+    if (committedInserts !== batchItems.length) {
+      throw new Error(
+        `Atomic touring index batch for prefecture ${prefecture.id} committed ${committedInserts} of ${batchItems.length} records`,
+      );
     }
 
     logger.debug("Prefecture batch processing completed successfully", {
@@ -287,6 +290,8 @@ export class BatchCalculateTouringIndexUsecase {
       operation: "prefecture_batch_success",
       datesProcessed: targetDates.length,
     });
+
+    return committedInserts;
   }
 
   /**

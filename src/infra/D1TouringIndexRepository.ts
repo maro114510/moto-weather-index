@@ -24,55 +24,74 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
   }
 
   /**
-   * Insert or replace touring index data for a prefecture and date
-   * Uses UPSERT (INSERT OR REPLACE) to handle duplicate entries
+   * Atomically insert or update every date in a prefecture range.
    */
-  async upsertTouringIndex(item: TouringIndexBatchItem): Promise<void> {
+  async upsertTouringIndexes(items: TouringIndexBatchItem[]): Promise<number> {
+    if (items.length === 0) {
+      return 0;
+    }
+
     const context = {
-      operation: "upsert_touring_index",
-      prefecture_id: item.prefecture_id,
-      date: item.date,
-      score: item.score,
+      operation: "upsert_touring_indexes",
+      prefecture_id: items[0].prefecture_id,
+      recordsCount: items.length,
+      firstDate: items[0].date,
+      lastDate: items[items.length - 1].date,
     };
 
-    logger.debug("Starting touring index upsert", context);
+    logger.debug("Starting atomic touring index upsert", context);
 
     const sql = `
-      INSERT OR REPLACE INTO touring_index_daily
+      INSERT INTO touring_index_daily
       (prefecture_id, date, score, weather_factors_json, weather_raw_json, calculated_at)
       VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+      ON CONFLICT(prefecture_id, date) DO UPDATE SET
+        score = excluded.score,
+        weather_factors_json = excluded.weather_factors_json,
+        weather_raw_json = excluded.weather_raw_json,
+        calculated_at = excluded.calculated_at
     `;
 
     try {
       const dbStartTime = Date.now();
+      const statement = this.db.prepare(sql);
+      const results = await this.db.batch(
+        items.map((item) =>
+          statement.bind(
+            item.prefecture_id,
+            item.date,
+            item.score,
+            item.weather_factors_json,
+            item.weather_raw_json,
+            item.calculated_at || null,
+          ),
+        ),
+      );
 
-      await this.db
-        .prepare(sql)
-        .bind(
-          item.prefecture_id,
-          item.date,
-          item.score,
-          item.weather_factors_json,
-          item.weather_raw_json,
-          item.calculated_at || null,
-        )
-        .run();
+      if (
+        results.length !== items.length ||
+        results.some((result) => !result.success)
+      ) {
+        throw new Error(
+          `D1 batch did not confirm all records: ${results.length}/${items.length} results succeeded`,
+        );
+      }
 
       const dbDuration = Date.now() - dbStartTime;
 
-      logger.debug("Touring index upsert completed successfully", {
+      logger.debug("Atomic touring index upsert completed successfully", {
         ...context,
-        operation: "upsert_touring_index_success",
+        operation: "upsert_touring_indexes_success",
         dbDuration,
-        weatherFactorsSize: item.weather_factors_json.length,
-        weatherRawSize: item.weather_raw_json.length,
       });
+
+      return results.length;
     } catch (error) {
       logger.error(
-        "Failed to upsert touring index",
+        "Failed to atomically upsert touring index range",
         {
           ...context,
-          operation: "upsert_touring_index_error",
+          operation: "upsert_touring_indexes_error",
           sql: sql.replace(/\s+/g, " ").trim(),
           errorMessage: error instanceof Error ? error.message : String(error),
         },
@@ -80,7 +99,7 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
       );
 
       throw new Error(
-        `Failed to upsert touring index for prefecture ${item.prefecture_id}, date ${item.date}: ${error}`,
+        `Failed to atomically upsert touring index range for prefecture ${items[0].prefecture_id}: ${error}`,
       );
     }
   }

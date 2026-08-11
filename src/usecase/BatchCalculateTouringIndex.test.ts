@@ -94,7 +94,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     };
 
     mockTouringIndexRepository = {
-      upsertTouringIndex: mock(async () => {}),
+      upsertTouringIndexes: mock(async (items) => items.length),
       getAllPrefectures: mock(async (): Promise<Prefecture[]> => {
         return [
           {
@@ -180,7 +180,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     test("should process all prefectures for all target dates", async () => {
       const targetDates = ["2025-06-01", "2025-06-02"];
 
-      const result = await usecase.execute(targetDates, 1);
+      const result = await usecase.execute(targetDates);
 
       // Should process 2 prefectures × 2 dates = 4 total
       expect(result.total_processed).toBe(4);
@@ -191,16 +191,16 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       // Verify batch weather API was called correctly (once per prefecture)
       expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalledTimes(2);
 
-      // Verify database upsert was called correctly (once per prefecture-date combination)
+      // Verify each prefecture range is persisted with one atomic operation.
       expect(
-        mockTouringIndexRepository.upsertTouringIndex,
-      ).toHaveBeenCalledTimes(4);
+        mockTouringIndexRepository.upsertTouringIndexes,
+      ).toHaveBeenCalledTimes(2);
     });
 
     test("should call batch weather API with correct parameters", async () => {
       const targetDates = ["2025-06-01", "2025-06-02"];
 
-      await usecase.execute(targetDates, 1);
+      await usecase.execute(targetDates);
 
       // Check first prefecture (Hokkaido) - batch call
       expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalledWith(
@@ -219,31 +219,31 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       );
     });
 
-    test("should call database upsert with correct data structure", async () => {
-      const targetDates = ["2025-06-01"];
+    test("persists every prefecture range as one batch with correct data", async () => {
+      const targetDates = ["2025-06-01", "2025-06-02"];
 
-      await usecase.execute(targetDates, 1);
+      await usecase.execute(targetDates);
 
-      // Verify upsert was called with correct structure
-      const upsertCalls = (mockTouringIndexRepository.upsertTouringIndex as any)
-        .mock.calls;
+      const upsertCalls = (
+        mockTouringIndexRepository.upsertTouringIndexes as any
+      ).mock.calls;
       expect(upsertCalls).toHaveLength(2);
 
-      // Check first call (Hokkaido)
-      const firstCall = upsertCalls[0][0];
-      expect(firstCall).toMatchObject({
+      const hokkaidoItems = upsertCalls[0][0];
+      expect(hokkaidoItems).toHaveLength(2);
+      expect(hokkaidoItems[0]).toMatchObject({
         prefecture_id: 1,
         date: "2025-06-01",
         score: 100, // Perfect weather should give max score (30+20+15+10+5+10+5+5 = 100)
       });
 
       // Check that weather_factors_json and weather_raw_json are strings
-      expect(typeof firstCall.weather_factors_json).toBe("string");
-      expect(typeof firstCall.weather_raw_json).toBe("string");
+      expect(typeof hokkaidoItems[0].weather_factors_json).toBe("string");
+      expect(typeof hokkaidoItems[0].weather_raw_json).toBe("string");
 
       // Verify JSON strings are valid and contain expected content
-      const weatherFactors = JSON.parse(firstCall.weather_factors_json);
-      const weatherRaw = JSON.parse(firstCall.weather_raw_json);
+      const weatherFactors = JSON.parse(hokkaidoItems[0].weather_factors_json);
+      const weatherRaw = JSON.parse(hokkaidoItems[0].weather_raw_json);
 
       expect(weatherFactors).toHaveProperty("weather");
       expect(weatherFactors).toHaveProperty("temperature");
@@ -298,27 +298,43 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       });
     });
 
-    test("should handle database errors gracefully", async () => {
-      // Create new mock that throws error for second prefecture's first date
+    test("reports no committed records for a prefecture when its atomic batch fails", async () => {
       let callCount = 0;
-      const upsertMock = mock(async () => {
+      const upsertBatchMock = mock(async (items: unknown[]) => {
         callCount++;
         if (callCount === 2) {
           throw new Error("Database connection failed");
         }
+        return items.length;
       });
 
-      // Replace the mock
-      mockTouringIndexRepository.upsertTouringIndex = upsertMock;
+      mockTouringIndexRepository.upsertTouringIndexes = upsertBatchMock;
 
-      const targetDates = ["2025-06-01"];
-      const result = await usecase.execute(targetDates, 1);
+      const targetDates = ["2025-06-01", "2025-06-02"];
+      const result = await usecase.execute(targetDates);
 
-      expect(result.total_processed).toBe(2);
-      expect(result.successful_inserts).toBe(1);
-      expect(result.failed_inserts).toBe(1);
-      expect(result.errors).toHaveLength(1);
+      expect(result.total_processed).toBe(4);
+      expect(result.successful_inserts).toBe(2);
+      expect(result.failed_inserts).toBe(2);
+      expect(result.errors).toHaveLength(2);
       expect(result.errors[0].error).toContain("Database connection failed");
+    });
+
+    test("rejects an unconfirmed batch count instead of reporting partial success", async () => {
+      let callCount = 0;
+      mockTouringIndexRepository.upsertTouringIndexes = mock(
+        async (items: unknown[]) => {
+          callCount++;
+          return callCount === 1 ? items.length : items.length - 1;
+        },
+      );
+
+      const result = await usecase.execute(["2025-06-01", "2025-06-02"]);
+
+      expect(result.successful_inserts).toBe(2);
+      expect(result.failed_inserts).toBe(2);
+      expect(result.errors).toHaveLength(2);
+      expect(result.errors[0].error).toContain("committed 1 of 2");
     });
 
     test("does not retry a failed batch fetch in the usecase", async () => {
