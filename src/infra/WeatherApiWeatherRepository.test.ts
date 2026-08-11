@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { APP_CONFIG } from "../constants/appConfig";
+import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 
 // ---------------------------------------------------------------------------
@@ -86,6 +88,51 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
     const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("unknown");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — forecast day-range boundary (adapter-inclusive, real Date)
+// ---------------------------------------------------------------------------
+
+describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("accepts a forecast date exactly at the boundary (today + MAX_FORECAST_DAYS - 1)", async () => {
+    const targetDate = addDaysToDateString(
+      getJstDateString(),
+      APP_CONFIG.MAX_FORECAST_DAYS - 1,
+    );
+    mockFetch(buildForecastResponse(1000, targetDate));
+
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T03:00:00Z`,
+    );
+
+    expect(weather.condition).toBe("clear");
+  });
+
+  test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS)", async () => {
+    const targetDate = addDaysToDateString(
+      getJstDateString(),
+      APP_CONFIG.MAX_FORECAST_DAYS,
+    );
+    mockFetch(buildForecastResponse(1000, targetDate));
+
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+
+    await expect(
+      repo.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
+    ).rejects.toThrow("beyond WeatherAPI forecast range");
   });
 });
 

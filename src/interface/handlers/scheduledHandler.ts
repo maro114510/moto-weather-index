@@ -1,4 +1,5 @@
 import type { ExecutionContext } from "@cloudflare/workers-types";
+import { APP_CONFIG } from "../../constants/appConfig";
 import {
   createBatchCalculateTouringIndexUsecase,
   createTouringIndexRepository,
@@ -20,7 +21,7 @@ export async function scheduledHandler(
 
   try {
     // Default parameters for scheduled execution
-    const days = 16; // Calculate for next 16 days
+    const days = APP_CONFIG.MAX_FORECAST_DAYS;
     const maxRetries = 3;
 
     // Create repositories and usecase
@@ -85,6 +86,12 @@ export async function scheduledHandler(
         errorCount: result.errors.length,
         errors: result.errors,
       });
+
+      // Incomplete coverage must fail the scheduled invocation so Cloudflare
+      // reports the run as failed instead of a silent partial success.
+      throw new Error(
+        `Scheduled batch processing incomplete: ${result.failed_inserts}/${result.total_processed} records failed`,
+      );
     }
   } catch (error) {
     logger.error(

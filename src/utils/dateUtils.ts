@@ -1,3 +1,30 @@
+import { APP_CONFIG } from "../constants/appConfig";
+
+/**
+ * Get the current calendar date in the app's business timezone (Asia/Tokyo),
+ * regardless of the runtime's local/UTC clock.
+ * @param date Reference instant (defaults to now)
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function getJstDateString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_CONFIG.DEFAULT_TIMEZONE,
+  }).format(date);
+}
+
+/**
+ * Add a number of calendar days to a YYYY-MM-DD date string using pure UTC
+ * arithmetic, so the result never depends on the runtime's local timezone.
+ * @param dateString Date string in YYYY-MM-DD format
+ * @param days Number of days to add (may be negative)
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function addDaysToDateString(dateString: string, days: number): string {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split("T")[0];
+}
+
 /**
  * Validate that a date string is in YYYY-MM-DD format and represents a valid date
  * @param dateString Date string to validate
@@ -46,12 +73,17 @@ export function validateDateRange(startDate: string, endDate: string): void {
     throw new Error("startDate must be before endDate");
   }
 
-  // Don't allow future dates beyond 16 days from today
-  const maxFutureDate = new Date();
-  maxFutureDate.setDate(maxFutureDate.getDate() + 16);
+  // Don't allow dates beyond the provider's forecast window, anchored to the
+  // Asia/Tokyo business date (see APP_CONFIG.MAX_FORECAST_DAYS)
+  const maxFutureDays = APP_CONFIG.MAX_FORECAST_DAYS - 1;
+  const maxFutureDate = new Date(
+    `${addDaysToDateString(getJstDateString(), maxFutureDays)}T00:00:00Z`,
+  );
 
   if (end > maxFutureDate) {
-    throw new Error("endDate cannot be more than 16 days in the future");
+    throw new Error(
+      `endDate cannot be more than ${maxFutureDays} days in the future`,
+    );
   }
 
   // Limit to maximum 30 days for performance
@@ -78,7 +110,7 @@ export function validateBatchStartDate(startDate: string): void {
   validateDateFormat(startDate, "startDate");
 
   const start = new Date(startDate);
-  const today = new Date();
+  const today = new Date(`${getJstDateString()}T00:00:00Z`);
 
   // Set time to start of day for accurate comparison
   start.setHours(0, 0, 0, 0);
@@ -92,13 +124,15 @@ export function validateBatchStartDate(startDate: string): void {
     throw new Error("Batch start date must be within the last 7 days");
   }
 
-  // Don't allow future dates beyond 16 days from today
+  // Don't allow dates beyond the provider's forecast window, anchored to the
+  // Asia/Tokyo business date (see APP_CONFIG.MAX_FORECAST_DAYS)
+  const maxFutureDays = APP_CONFIG.MAX_FORECAST_DAYS - 1;
   const maxFutureDate = new Date(today);
-  maxFutureDate.setDate(today.getDate() + 16);
+  maxFutureDate.setDate(today.getDate() + maxFutureDays);
 
   if (start > maxFutureDate) {
     throw new Error(
-      "Batch start date cannot be more than 16 days in the future",
+      `Batch start date cannot be more than ${maxFutureDays} days in the future`,
     );
   }
 }

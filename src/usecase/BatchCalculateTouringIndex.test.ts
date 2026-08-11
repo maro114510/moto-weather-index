@@ -1,11 +1,38 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { APP_CONFIG } from "../constants/appConfig";
 import type { Weather } from "../domain/Weather";
+import { getJstDateString } from "../utils/dateUtils";
 import {
   BatchCalculateTouringIndexUsecase,
   type Prefecture,
   type TouringIndexRepository,
   type WeatherRepository,
 } from "./BatchCalculateTouringIndex";
+
+// Helper to mock `Date` so `new Date()` (and `Date.now()`) resolve to a fixed
+// instant, mirroring the pattern already used in this file's other tests.
+function withMockedNow<T>(isoInstant: string, run: () => T): T {
+  const originalDate = Date;
+  const mockDate = new Date(isoInstant);
+  global.Date = class extends Date {
+    constructor(...args: any[]) {
+      if (args.length === 0) {
+        super(mockDate);
+      } else {
+        super(...(args as []));
+      }
+    }
+    static now() {
+      return mockDate.getTime();
+    }
+  } as any;
+
+  try {
+    return run();
+  } finally {
+    global.Date = originalDate;
+  }
+}
 
 describe("BatchCalculateTouringIndexUsecase", () => {
   let mockWeatherRepository: WeatherRepository;
@@ -108,8 +135,18 @@ describe("BatchCalculateTouringIndexUsecase", () => {
 
     test("should include today as first date", () => {
       const dates = BatchCalculateTouringIndexUsecase.generateTargetDates(1);
-      const today = new Date().toISOString().split("T")[0];
+      const today = getJstDateString();
       expect(dates[0]).toBe(today);
+    });
+
+    test("should use the Asia/Tokyo calendar date as first date, not the UTC date", () => {
+      // 2025-06-14T20:00:00Z is 2025-06-15T05:00:00+09:00 in JST — the UTC and
+      // JST calendar dates disagree, which is exactly the cron's failure mode
+      // (it fires at 19:00 UTC = 04:00 JST the next day).
+      withMockedNow("2025-06-14T20:00:00.000Z", () => {
+        const dates = BatchCalculateTouringIndexUsecase.generateTargetDates(1);
+        expect(dates[0]).toBe("2025-06-15");
+      });
     });
 
     test("should generate consecutive dates", () => {
@@ -124,9 +161,9 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(date3.getTime() - date2.getTime()).toBe(24 * 60 * 60 * 1000);
     });
 
-    test("should default to 16 days", () => {
+    test("should default to MAX_FORECAST_DAYS days", () => {
       const dates = BatchCalculateTouringIndexUsecase.generateTargetDates();
-      expect(dates).toHaveLength(16);
+      expect(dates).toHaveLength(APP_CONFIG.MAX_FORECAST_DAYS);
     });
   });
 
@@ -352,7 +389,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       }
     });
 
-    test("should use default 16 days when days parameter not provided", () => {
+    test("should use default MAX_FORECAST_DAYS days when days parameter not provided", () => {
       // Mock Date to make "2025-06-10" within 7 days
       const originalDate = Date;
       const mockDate = new Date("2025-06-15T00:00:00.000Z");
@@ -377,9 +414,9 @@ describe("BatchCalculateTouringIndexUsecase", () => {
             startDate,
           );
 
-        expect(dates).toHaveLength(16);
+        expect(dates).toHaveLength(APP_CONFIG.MAX_FORECAST_DAYS);
         expect(dates[0]).toBe("2025-06-10");
-        expect(dates[15]).toBe("2025-06-25");
+        expect(dates[APP_CONFIG.MAX_FORECAST_DAYS - 1]).toBe("2025-06-23");
       } finally {
         global.Date = originalDate;
       }
@@ -408,6 +445,24 @@ describe("BatchCalculateTouringIndexUsecase", () => {
 
       expect(dates).toHaveLength(3);
       expect(dates[0]).toBe(startDate);
+    });
+
+    test("caps the range so a future start date never generates a date beyond the forecast boundary", () => {
+      withMockedNow("2025-06-15T00:00:00.000Z", () => {
+        // Latest start date the validator allows: today + (MAX_FORECAST_DAYS - 1)
+        const startDate = "2025-06-25"; // today (06-15) + 10 days
+
+        const dates =
+          BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
+            startDate,
+          ); // days defaults to MAX_FORECAST_DAYS (14), which would overshoot
+
+        // Boundary is today + (MAX_FORECAST_DAYS - 1) = 06-28, so only 4 dates
+        // (06-25..06-28) fit, not the full default of 14.
+        expect(dates).toHaveLength(4);
+        expect(dates[0]).toBe("2025-06-25");
+        expect(dates[dates.length - 1]).toBe("2025-06-28");
+      });
     });
   });
 });

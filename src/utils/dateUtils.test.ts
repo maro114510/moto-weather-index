@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { validateBatchStartDate, validateDateRange } from "./dateUtils";
+import { APP_CONFIG } from "../constants/appConfig";
+import {
+  addDaysToDateString,
+  getJstDateString,
+  validateBatchStartDate,
+  validateDateRange,
+} from "./dateUtils";
+
+const MAX_FUTURE_DAYS = APP_CONFIG.MAX_FORECAST_DAYS - 1;
 
 describe("dateUtils", () => {
   describe("validateDateRange", () => {
@@ -35,26 +43,20 @@ describe("dateUtils", () => {
       );
     });
 
-    test("should reject when endDate is more than 16 days in the future", () => {
-      const today = new Date();
-      const futureDate = new Date(today);
-      futureDate.setDate(today.getDate() + 20);
-
-      const startDate = today.toISOString().split("T")[0];
-      const endDate = futureDate.toISOString().split("T")[0];
+    test("should reject when endDate is more than the forecast window in the future", () => {
+      const today = getJstDateString();
+      const startDate = today;
+      const endDate = addDaysToDateString(today, MAX_FUTURE_DAYS + 4);
 
       expect(() => validateDateRange(startDate, endDate)).toThrow(
-        "endDate cannot be more than 16 days in the future",
+        `endDate cannot be more than ${MAX_FUTURE_DAYS} days in the future`,
       );
     });
 
-    test("should accept endDate exactly 16 days in the future", () => {
-      const today = new Date();
-      const futureDate = new Date(today);
-      futureDate.setDate(today.getDate() + 16);
-
-      const startDate = today.toISOString().split("T")[0];
-      const endDate = futureDate.toISOString().split("T")[0];
+    test("should accept endDate exactly at the forecast window boundary", () => {
+      const today = getJstDateString();
+      const startDate = today;
+      const endDate = addDaysToDateString(today, MAX_FUTURE_DAYS);
 
       expect(() => validateDateRange(startDate, endDate)).not.toThrow();
     });
@@ -120,60 +122,54 @@ describe("dateUtils", () => {
 
   describe("validateBatchStartDate", () => {
     test("should accept today as start date", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getJstDateString();
 
       expect(() => validateBatchStartDate(today)).not.toThrow();
     });
 
     test("should accept date within last 7 days", () => {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 3); // 3 days ago
-      const dateString = pastDate.toISOString().split("T")[0];
+      const dateString = addDaysToDateString(getJstDateString(), -3);
 
       expect(() => validateBatchStartDate(dateString)).not.toThrow();
     });
 
     test("should accept exactly 7 days ago", () => {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 7);
-      const dateString = pastDate.toISOString().split("T")[0];
+      const dateString = addDaysToDateString(getJstDateString(), -7);
 
       expect(() => validateBatchStartDate(dateString)).not.toThrow();
     });
 
     test("should reject date older than 7 days", () => {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 8);
-      const dateString = pastDate.toISOString().split("T")[0];
+      const dateString = addDaysToDateString(getJstDateString(), -8);
 
       expect(() => validateBatchStartDate(dateString)).toThrow(
         "Batch start date must be within the last 7 days",
       );
     });
 
-    test("should accept future date within 16 days", () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 10);
-      const dateString = futureDate.toISOString().split("T")[0];
+    test("should accept future date within the forecast window", () => {
+      const dateString = addDaysToDateString(getJstDateString(), 10);
 
       expect(() => validateBatchStartDate(dateString)).not.toThrow();
     });
 
-    test("should accept exactly 16 days in the future", () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 16);
-      const dateString = futureDate.toISOString().split("T")[0];
+    test("should accept exactly at the forecast window boundary", () => {
+      const dateString = addDaysToDateString(
+        getJstDateString(),
+        MAX_FUTURE_DAYS,
+      );
 
       expect(() => validateBatchStartDate(dateString)).not.toThrow();
     });
 
-    test("should reject date more than 16 days in the future", () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 17);
-      const dateString = futureDate.toISOString().split("T")[0];
+    test("should reject date beyond the forecast window", () => {
+      const dateString = addDaysToDateString(
+        getJstDateString(),
+        MAX_FUTURE_DAYS + 1,
+      );
 
       expect(() => validateBatchStartDate(dateString)).toThrow(
-        "Batch start date cannot be more than 16 days in the future",
+        `Batch start date cannot be more than ${MAX_FUTURE_DAYS} days in the future`,
       );
     });
 

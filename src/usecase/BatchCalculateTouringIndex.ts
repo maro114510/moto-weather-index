@@ -1,5 +1,10 @@
+import { APP_CONFIG } from "../constants/appConfig";
 import type { Weather } from "../domain/Weather";
-import { validateBatchStartDate } from "../utils/dateUtils";
+import {
+  addDaysToDateString,
+  getJstDateString,
+  validateBatchStartDate,
+} from "../utils/dateUtils";
 import { logger } from "../utils/logger";
 import { calculateTouringIndex } from "./CalculateTouringIndex";
 
@@ -352,21 +357,19 @@ export class BatchCalculateTouringIndexUsecase {
   }
 
   /**
-   * Generate array of date strings for the next N days from today
-   * @param days Number of days to generate (default: 16)
+   * Generate array of date strings for the next N days from the current
+   * Asia/Tokyo business date
+   * @param days Number of days to generate (default: APP_CONFIG.MAX_FORECAST_DAYS)
    * @returns Array of date strings in YYYY-MM-DD format
    */
-  static generateTargetDates(days = 16): string[] {
+  static generateTargetDates(
+    days: number = APP_CONFIG.MAX_FORECAST_DAYS,
+  ): string[] {
+    const today = getJstDateString();
     const dates: string[] = [];
-    const today = new Date();
 
     for (let i = 0; i < days; i++) {
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + i);
-
-      // Format as YYYY-MM-DD
-      const dateString = targetDate.toISOString().split("T")[0];
-      dates.push(dateString);
+      dates.push(addDaysToDateString(today, i));
     }
 
     return dates;
@@ -375,29 +378,41 @@ export class BatchCalculateTouringIndexUsecase {
   /**
    * Generate array of date strings starting from a specific date
    * @param startDate Start date in YYYY-MM-DD format
-   * @param days Number of days to generate (default: 16)
+   * @param days Number of days to generate (default: APP_CONFIG.MAX_FORECAST_DAYS)
    * @returns Array of date strings in YYYY-MM-DD format
    */
-  static generateTargetDatesFromStart(startDate: string, days = 16): string[] {
+  static generateTargetDatesFromStart(
+    startDate: string,
+    days: number = APP_CONFIG.MAX_FORECAST_DAYS,
+  ): string[] {
     // Validate the start date
     validateBatchStartDate(startDate);
 
+    // Cap the range so a custom start date near the provider's forecast
+    // boundary can never generate a date beyond it (see APP_CONFIG.MAX_FORECAST_DAYS)
+    const maxDate = addDaysToDateString(
+      getJstDateString(),
+      APP_CONFIG.MAX_FORECAST_DAYS - 1,
+    );
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysUntilBoundary =
+      Math.floor(
+        (new Date(`${maxDate}T00:00:00Z`).getTime() -
+          new Date(`${startDate}T00:00:00Z`).getTime()) /
+          msPerDay,
+      ) + 1;
+    const effectiveDays = Math.max(0, Math.min(days, daysUntilBoundary));
+
     const dates: string[] = [];
-    const start = new Date(startDate);
 
-    for (let i = 0; i < days; i++) {
-      const targetDate = new Date(start);
-      targetDate.setDate(start.getDate() + i);
-
-      // Format as YYYY-MM-DD
-      const dateString = targetDate.toISOString().split("T")[0];
-      dates.push(dateString);
+    for (let i = 0; i < effectiveDays; i++) {
+      dates.push(addDaysToDateString(startDate, i));
     }
 
     logger.info("Generated target dates from custom start date", {
       operation: "generate_target_dates_from_start",
       startDate,
-      days,
+      days: effectiveDays,
       firstDate: dates[0],
       lastDate: dates[dates.length - 1],
       totalDates: dates.length,
