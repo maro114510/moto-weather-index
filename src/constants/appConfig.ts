@@ -14,6 +14,11 @@ export const APP_CONFIG = {
   // Weather data defaults
   DEFAULT_VISIBILITY_KM: 20, // Default visibility in kilometers for daily weather data
 
+  // Weather provider forecast window: WeatherAPI's forecast.json endpoint only
+  // returns data for "today" (day 1) through day MAX_FORECAST_DAYS, so the
+  // furthest valid forecast date is today + (MAX_FORECAST_DAYS - 1).
+  MAX_FORECAST_DAYS: 14,
+
   // API URLs
   OPEN_METEO_API_BASE_URL: "https://api.open-meteo.com/v1",
   OPEN_METEO_FORECAST_ENDPOINT: "/forecast",

@@ -3,6 +3,7 @@ import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { Weather, WeatherCondition } from "../domain/Weather";
+import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
 
@@ -148,16 +149,18 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
 
     // Extract date from datetime (YYYY-MM-DD format)
     const targetDate = datetime.split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
+    const today = getJstDateString();
 
     // Determine which API endpoint to use based on date
     const isHistorical = targetDate < today;
     const isForecast = targetDate >= today;
 
-    // WeatherAPI forecast supports up to 14 days in the future
-    const maxForecastDate = new Date();
-    maxForecastDate.setDate(maxForecastDate.getDate() + 14);
-    const maxForecastDateStr = maxForecastDate.toISOString().split("T")[0];
+    // WeatherAPI's forecast.json returns "today" (day 1) through day
+    // MAX_FORECAST_DAYS, so the furthest valid date is today + (MAX_FORECAST_DAYS - 1)
+    const maxForecastDateStr = addDaysToDateString(
+      today,
+      APP_CONFIG.MAX_FORECAST_DAYS - 1,
+    );
 
     let url: string;
     let params: Record<string, string>;
@@ -172,7 +175,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         aqi: "no",
       };
     } else if (isForecast && targetDate <= maxForecastDateStr) {
-      // Use forecast API for today and future dates (up to 14 days)
+      // Use forecast API for today and future dates (up to MAX_FORECAST_DAYS)
       url = "https://api.weatherapi.com/v1/forecast.json";
 
       // Normalize both dates to UTC midnight for accurate day difference calculation
@@ -193,8 +196,11 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         (targetMidnight.getTime() - todayMidnight.getTime()) / msPerDay,
       );
 
-      // Clamp to API limits: minimum 1 day, maximum 14 days
-      const days = Math.min(14, Math.max(1, diffDays + 1));
+      // Clamp to API limits: minimum 1 day, maximum MAX_FORECAST_DAYS
+      const days = Math.min(
+        APP_CONFIG.MAX_FORECAST_DAYS,
+        Math.max(1, diffDays + 1),
+      );
 
       params = {
         key,
@@ -207,7 +213,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     } else {
       // Date is too far in the future, fall back to history API
       throw new Error(
-        `Date ${targetDate} is beyond WeatherAPI forecast range (max 14 days from today)`,
+        `Date ${targetDate} is beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
       );
     }
 

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { APP_CONFIG } from "../constants/appConfig";
+import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 
 // ---------------------------------------------------------------------------
@@ -32,6 +34,18 @@ function mockFetch(body: object, status = 200) {
       headers: { "Content-Type": "application/json" },
     });
   }) as any;
+}
+
+function mockFetchCapturingUrl(body: object, status = 200) {
+  const calls: string[] = [];
+  globalThis.fetch = mock(async (input: any) => {
+    calls.push(String(input));
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as any;
+  return calls;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +100,59 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
     const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("unknown");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — forecast day-range boundary (adapter-inclusive, real Date)
+// ---------------------------------------------------------------------------
+
+describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("accepts a forecast date exactly at the boundary (today + MAX_FORECAST_DAYS - 1)", async () => {
+    const targetDate = addDaysToDateString(
+      getJstDateString(),
+      APP_CONFIG.MAX_FORECAST_DAYS - 1,
+    );
+    const calls = mockFetchCapturingUrl(
+      buildForecastResponse(1000, targetDate),
+    );
+
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const weather = await repo.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T03:00:00Z`,
+    );
+
+    expect(weather.condition).toBe("clear");
+    // The adapter must request the full MAX_FORECAST_DAYS window — one day
+    // short would mean WeatherAPI never returns the boundary date at all.
+    const requestedDays = new URL(calls[0]).searchParams.get("days");
+    expect(requestedDays).toBe(String(APP_CONFIG.MAX_FORECAST_DAYS));
+  });
+
+  test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS)", async () => {
+    const targetDate = addDaysToDateString(
+      getJstDateString(),
+      APP_CONFIG.MAX_FORECAST_DAYS,
+    );
+    mockFetch(buildForecastResponse(1000, targetDate));
+
+    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+
+    await expect(
+      repo.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
+    ).rejects.toThrow(
+      `beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
+    );
   });
 });
 

@@ -1,3 +1,30 @@
+import { APP_CONFIG } from "../constants/appConfig";
+
+/**
+ * Get the current calendar date in the app's business timezone (Asia/Tokyo),
+ * regardless of the runtime's local/UTC clock.
+ * @param date Reference instant (defaults to now)
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function getJstDateString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_CONFIG.DEFAULT_TIMEZONE,
+  }).format(date);
+}
+
+/**
+ * Add a number of calendar days to a YYYY-MM-DD date string using pure UTC
+ * arithmetic, so the result never depends on the runtime's local timezone.
+ * @param dateString Date string in YYYY-MM-DD format
+ * @param days Number of days to add (may be negative)
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function addDaysToDateString(dateString: string, days: number): string {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split("T")[0];
+}
+
 /**
  * Validate that a date string is in YYYY-MM-DD format and represents a valid date
  * @param dateString Date string to validate
@@ -17,12 +44,14 @@ function validateDateFormat(dateString: string, fieldName: string): void {
   }
 
   // Additional check: ensure the date string matches what Date constructor parsed
-  // This catches cases like "2025-02-30" which gets silently converted
+  // This catches cases like "2025-02-30" which gets silently converted.
+  // Use UTC getters: a date-only string like "2025-06-15" is parsed as UTC
+  // midnight, so local getters would misread it on non-UTC hosts.
   const [year, month, day] = dateString.split("-").map(Number);
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
   ) {
     throw new Error(`${fieldName} is not a valid date`);
   }
@@ -46,12 +75,17 @@ export function validateDateRange(startDate: string, endDate: string): void {
     throw new Error("startDate must be before endDate");
   }
 
-  // Don't allow future dates beyond 16 days from today
-  const maxFutureDate = new Date();
-  maxFutureDate.setDate(maxFutureDate.getDate() + 16);
+  // Don't allow dates beyond the provider's forecast window, anchored to the
+  // Asia/Tokyo business date (see APP_CONFIG.MAX_FORECAST_DAYS)
+  const maxFutureDays = APP_CONFIG.MAX_FORECAST_DAYS - 1;
+  const maxFutureDate = new Date(
+    `${addDaysToDateString(getJstDateString(), maxFutureDays)}T00:00:00Z`,
+  );
 
   if (end > maxFutureDate) {
-    throw new Error("endDate cannot be more than 16 days in the future");
+    throw new Error(
+      `endDate cannot be more than ${maxFutureDays} days in the future`,
+    );
   }
 
   // Limit to maximum 30 days for performance
@@ -77,28 +111,33 @@ export function validateBatchStartDate(startDate: string): void {
   // Validate date format first
   validateDateFormat(startDate, "startDate");
 
+  // Both are already UTC midnight (a date-only string is parsed as such);
+  // use UTC accessors throughout so this doesn't depend on the host's local
+  // timezone.
   const start = new Date(startDate);
-  const today = new Date();
+  const today = new Date(`${getJstDateString()}T00:00:00Z`);
 
   // Set time to start of day for accurate comparison
-  start.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
+  start.setUTCHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   // Check if start date is within the last 7 days (including today)
   const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 7);
+  weekAgo.setUTCDate(today.getUTCDate() - 7);
 
   if (start < weekAgo) {
     throw new Error("Batch start date must be within the last 7 days");
   }
 
-  // Don't allow future dates beyond 16 days from today
+  // Don't allow dates beyond the provider's forecast window, anchored to the
+  // Asia/Tokyo business date (see APP_CONFIG.MAX_FORECAST_DAYS)
+  const maxFutureDays = APP_CONFIG.MAX_FORECAST_DAYS - 1;
   const maxFutureDate = new Date(today);
-  maxFutureDate.setDate(today.getDate() + 16);
+  maxFutureDate.setUTCDate(today.getUTCDate() + maxFutureDays);
 
   if (start > maxFutureDate) {
     throw new Error(
-      "Batch start date cannot be more than 16 days in the future",
+      `Batch start date cannot be more than ${maxFutureDays} days in the future`,
     );
   }
 }
