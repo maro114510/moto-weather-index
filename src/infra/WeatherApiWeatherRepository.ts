@@ -2,7 +2,12 @@ import { APP_CONFIG } from "../constants/appConfig";
 import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
-import type { Weather, WeatherCondition } from "../domain/Weather";
+import {
+  type AirQualityLevel,
+  type Weather,
+  type WeatherCondition,
+  WeatherSchema,
+} from "../domain/Weather";
 import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { logger } from "../utils/logger";
 import type { WeatherRepository } from "./WeatherRepository";
@@ -85,6 +90,49 @@ function parseAndClampPrecipitationProbability(
 
   // Clamp to 0-100 range
   return Math.max(0, Math.min(100, parsed));
+}
+
+function mapWeatherApiAirQuality(value: unknown): AirQualityLevel | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    throw new HttpError(
+      HTTP_STATUS.BAD_GATEWAY,
+      "Invalid WeatherAPI response: us-epa-index",
+      {
+        code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+        details: { field: "us-epa-index", valueType: typeof value },
+      },
+    );
+  }
+
+  if (value === 1) return "low";
+  if (value === 2) return "medium";
+  return "high";
+}
+
+function validateWeatherApiWeather(
+  weather: unknown,
+  location: { lat: number; lon: number },
+  targetDate: string,
+): Weather {
+  const result = WeatherSchema.safeParse(weather);
+  if (result.success) return result.data;
+
+  const field = result.error.issues[0]?.path.join(".") || "weather";
+  throw new HttpError(
+    HTTP_STATUS.BAD_GATEWAY,
+    `Invalid WeatherAPI response: ${field}`,
+    {
+      code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+      details: { field, location, targetDate },
+    },
+  );
 }
 
 /**
@@ -247,7 +295,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         key,
         q: `${lat},${lon}`,
         dt: targetDate,
-        aqi: "no",
+        aqi: "yes",
       };
     } else if (isForecast && targetDate <= maxForecastDateStr) {
       // Use forecast API for today and future dates (up to MAX_FORECAST_DAYS)
@@ -282,7 +330,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         q: `${lat},${lon}`,
         days: String(days),
         dt: targetDate,
-        aqi: "no",
+        aqi: "yes",
         alerts: "no",
       };
     } else {
@@ -305,9 +353,9 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       const res = await this.requestWeatherApi(url, params);
 
       // Parse response based on endpoint type
-      let day: any;
+      let forecastDay: any;
       if (isHistorical) {
-        day = res.data?.forecast?.forecastday?.[0]?.day;
+        forecastDay = res.data?.forecast?.forecastday?.[0];
       } else {
         // For forecast, find the specific day we requested
         const forecastDays = res.data?.forecast?.forecastday;
@@ -315,11 +363,13 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           const targetDay = forecastDays.find(
             (d: any) => d.date === targetDate,
           );
-          day = targetDay?.day;
+          forecastDay = targetDay;
         } else {
-          day = res.data?.forecast?.forecastday?.[0]?.day;
+          forecastDay = res.data?.forecast?.forecastday?.[0];
         }
       }
+
+      const day = forecastDay?.day;
 
       if (!day) {
         const noDataContext = {
@@ -384,7 +434,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         ? mapWeatherApiCodeToCondition(conditionCode)
         : "unknown";
 
-      const weather: Weather = {
+      const weather = {
         // Preserve requested datetime as existing behavior does
         datetime,
         condition,
@@ -392,12 +442,15 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         // WeatherAPI kph -> m/s
         windSpeed: day.maxwind_kph / 3.6,
         humidity: day.avghumidity,
-        visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
+        visibility: day.avgvis_km,
         precipitationProbability: precipitationProbability,
         uvIndex: day.uv,
+        airQuality: mapWeatherApiAirQuality(
+          forecastDay?.air_quality?.["us-epa-index"],
+        ),
       };
 
-      return weather;
+      return validateWeatherApiWeather(weather, { lat, lon }, targetDate);
     } catch (error) {
       if (error instanceof HttpError) {
         throw error;
@@ -544,7 +597,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       key: this.getApiKey(),
       q: `${lat},${lon}`,
       days: String(targetDates.length),
-      aqi: "no",
+      aqi: "yes",
       alerts: "no",
     };
     logger.externalApiCall("WeatherAPI", url, {
@@ -557,12 +610,13 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       const daysByDate = new Map<string, any>(
         (response.data?.forecast?.forecastday ?? []).map((forecastDay: any) => [
           forecastDay.date,
-          forecastDay.day,
+          forecastDay,
         ]),
       );
 
       return targetDates.map((date) => {
-        const day = daysByDate.get(date);
+        const forecastDay = daysByDate.get(date);
+        const day = forecastDay?.day;
         if (!day) {
           throw new HttpError(
             HTTP_STATUS.BAD_GATEWAY,
@@ -593,21 +647,28 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         }
 
         const conditionCode: number | undefined = day.condition?.code;
-        return {
-          datetime: `${date}T03:00:00Z`,
-          condition: conditionCode
-            ? mapWeatherApiCodeToCondition(conditionCode)
-            : "unknown",
-          temperature: day.avgtemp_c,
-          windSpeed: day.maxwind_kph / 3.6,
-          humidity: day.avghumidity,
-          visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
-          precipitationProbability: parseAndClampPrecipitationProbability(
-            day.daily_chance_of_rain,
-            "daily_chance_of_rain",
-          ),
-          uvIndex: day.uv,
-        } satisfies Weather;
+        return validateWeatherApiWeather(
+          {
+            datetime: `${date}T03:00:00Z`,
+            condition: conditionCode
+              ? mapWeatherApiCodeToCondition(conditionCode)
+              : "unknown",
+            temperature: day.avgtemp_c,
+            windSpeed: day.maxwind_kph / 3.6,
+            humidity: day.avghumidity,
+            visibility: day.avgvis_km,
+            precipitationProbability: parseAndClampPrecipitationProbability(
+              day.daily_chance_of_rain,
+              "daily_chance_of_rain",
+            ),
+            uvIndex: day.uv,
+            airQuality: mapWeatherApiAirQuality(
+              forecastDay.air_quality?.["us-epa-index"],
+            ),
+          },
+          { lat, lon },
+          date,
+        );
       });
     } catch (error) {
       if (error instanceof HttpError) throw error;

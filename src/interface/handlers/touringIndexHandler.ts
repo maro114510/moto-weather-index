@@ -1,6 +1,7 @@
 // src/interface/handlers/touringIndexHandler.ts
 import type { Context } from "hono";
 import { APP_CONFIG } from "../../constants/appConfig";
+import { ERROR_CODES } from "../../constants/errorCodes";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import {
   getTouringIndexHistorySchema,
@@ -56,7 +57,19 @@ export async function getTouringIndex(c: Context<AppEnv>) {
   const weatherRepo = createWeatherRepository(c.env.WEATHERAPI_KEY);
 
   const weather = await weatherRepo.getWeather(lat, lon, datetime);
-  const { score, breakdown } = calculateTouringIndex(weather);
+  const touringIndex = calculateTouringIndex(weather);
+  if ("missingFactors" in touringIndex) {
+    throw new HttpError(
+      HTTP_STATUS.UNPROCESSABLE_ENTITY,
+      "Touring index is unavailable because required weather observations are missing",
+      {
+        code: ERROR_CODES.WEATHER_DATA_INCOMPLETE,
+        details: { missingFactors: touringIndex.missingFactors },
+      },
+    );
+  }
+
+  const { score, breakdown } = touringIndex;
 
   const response = {
     location: { lat, lon },

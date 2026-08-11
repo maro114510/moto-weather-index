@@ -79,10 +79,12 @@ describe("coordinate-dependent upstream error handling", () => {
               forecastday: [
                 {
                   date: "2026-02-09",
+                  air_quality: { "us-epa-index": 1 },
                   day: {
                     avgtemp_c: 15,
                     maxwind_kph: 10.8,
                     avghumidity: 55,
+                    avgvis_km: 10,
                     uv: 3,
                     daily_chance_of_rain: "20",
                     condition: { code: 1000 },
@@ -109,5 +111,44 @@ describe("coordinate-dependent upstream error handling", () => {
       testEnv,
     );
     expect(touringRes.status).toBe(HTTP_STATUS.OK);
+  });
+
+  test("returns 422 with every unavailable score factor", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            forecast: {
+              forecastday: [
+                {
+                  date: "2026-02-09",
+                  day: {
+                    avgtemp_c: 15,
+                    maxwind_kph: 10.8,
+                    avghumidity: 55,
+                    uv: 3,
+                    daily_chance_of_rain: "20",
+                    condition: { code: 1000 },
+                  },
+                },
+              ],
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const res = await app.request(
+      "http://localhost/api/v1/touring-index?lat=35.6762&lon=139.6503&datetime=2026-02-09",
+      {},
+      testEnv,
+    );
+
+    expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(await res.json()).toMatchObject({
+      error: expect.stringContaining("required weather observations"),
+      missingFactors: ["visibility", "airQuality"],
+    });
   });
 });

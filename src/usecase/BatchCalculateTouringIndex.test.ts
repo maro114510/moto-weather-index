@@ -349,6 +349,56 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(result.failed_inserts).toBe(2);
       expect(batchWeatherMock).toHaveBeenCalledTimes(2);
     });
+
+    test("does not publish incomplete days but persists complete days", async () => {
+      mockWeatherRepository.getWeatherBatch = mock(async () => [
+        {
+          datetime: "2025-06-01T03:00:00Z",
+          condition: "clear",
+          temperature: 21.5,
+          windSpeed: 2.5,
+          humidity: 50,
+          visibility: 20,
+          precipitationProbability: 0,
+          uvIndex: 3,
+          airQuality: "low",
+        },
+        {
+          datetime: "2025-06-02T03:00:00Z",
+          condition: "clear",
+          temperature: 21.5,
+          windSpeed: 2.5,
+          humidity: 50,
+          visibility: 20,
+          precipitationProbability: 0,
+          uvIndex: 3,
+        },
+      ]);
+
+      const result = await usecase.execute(["2025-06-01", "2025-06-02"]);
+
+      expect(result.successful_inserts).toBe(2);
+      expect(result.failed_inserts).toBe(2);
+      expect(result.errors).toEqual([
+        {
+          prefecture_id: 1,
+          date: "2025-06-02",
+          error: "Incomplete weather data: airQuality",
+        },
+        {
+          prefecture_id: 13,
+          date: "2025-06-02",
+          error: "Incomplete weather data: airQuality",
+        },
+      ]);
+
+      const upsertCalls = (
+        mockTouringIndexRepository.upsertTouringIndexes as any
+      ).mock.calls;
+      expect(upsertCalls).toHaveLength(2);
+      expect(upsertCalls[0][0]).toHaveLength(1);
+      expect(upsertCalls[0][0][0].date).toBe("2025-06-01");
+    });
   });
 
   describe("generateTargetDatesFromStart", () => {

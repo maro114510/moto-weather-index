@@ -7,16 +7,22 @@ import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildForecastResponse(conditionCode: number, targetDate: string) {
+function buildForecastResponse(
+  conditionCode: number,
+  targetDate: string,
+  epaIndex = 1,
+) {
   return {
     forecast: {
       forecastday: [
         {
           date: targetDate,
+          air_quality: { "us-epa-index": epaIndex },
           day: {
             avgtemp_c: 20,
             maxwind_kph: 10,
             avghumidity: 60,
+            avgvis_km: 10,
             uv: 3,
             daily_chance_of_rain: 30,
             condition: { code: conditionCode },
@@ -32,10 +38,12 @@ function buildForecastRangeResponse(targetDates: string[]) {
     forecast: {
       forecastday: targetDates.map((date) => ({
         date,
+        air_quality: { "us-epa-index": 1 },
         day: {
           avgtemp_c: 20,
           maxwind_kph: 10,
           avghumidity: 60,
+          avgvis_km: 10,
           uv: 3,
           daily_chance_of_rain: 30,
           condition: { code: 1000 },
@@ -119,6 +127,34 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("unknown");
   });
+
+  test("uses observed visibility and maps EPA air quality levels", async () => {
+    mockFetch(buildForecastResponse(1000, TARGET_DATE, 2));
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+
+    expect(weather.visibility).toBe(10);
+    expect(weather.airQuality).toBe("medium");
+  });
+
+  test("maps EPA indexes of three and above to high air quality risk", async () => {
+    mockFetch(buildForecastResponse(1000, TARGET_DATE, 3));
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    const weather = await repo.getWeather(35.68, 139.69, DATETIME);
+
+    expect(weather.airQuality).toBe("high");
+  });
+
+  test("rejects an invalid EPA air quality value from the upstream provider", async () => {
+    mockFetch(buildForecastResponse(1000, TARGET_DATE, 0));
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(repo.getWeather(35.68, 139.69, DATETIME)).rejects.toThrow(
+      "Invalid WeatherAPI response: us-epa-index",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -155,6 +191,7 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
     // short would mean WeatherAPI never returns the boundary date at all.
     const requestedDays = new URL(calls[0]).searchParams.get("days");
     expect(requestedDays).toBe(String(APP_CONFIG.MAX_FORECAST_DAYS));
+    expect(new URL(calls[0]).searchParams.get("aqi")).toBe("yes");
   });
 
   test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS)", async () => {

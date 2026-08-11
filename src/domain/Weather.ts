@@ -60,7 +60,8 @@ export const WeatherSchema = z.object({
   visibility: z
     .number()
     .min(0, "visibility must be >= 0")
-    .max(100, "visibility is too high"),
+    .max(100, "visibility is too high")
+    .optional(),
 
   // Precipitation probability in %: 0 to 100
   precipitationProbability: z

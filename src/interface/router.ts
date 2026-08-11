@@ -5,6 +5,7 @@ import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
+import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { AppEnv } from "../types/env";
@@ -104,6 +105,9 @@ app.onError((error, c) => {
     return c.json(
       {
         error: error.message,
+        ...(error.code === ERROR_CODES.WEATHER_DATA_INCOMPLETE
+          ? { missingFactors: error.details?.missingFactors }
+          : {}),
         requestId: c.get("requestId"),
       },
       statusCode,
