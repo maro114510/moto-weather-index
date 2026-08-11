@@ -9,7 +9,6 @@ import type { LogContext } from "../utils/logger";
 export type AppEnv = {
   Bindings: {
     DB: D1Database;
-    OPEN_METEO_CACHE: KVNamespace;
     WEATHERAPI_KEY: string;
     BATCH_START_DATE?: string;
     LOG_LEVEL?: string;

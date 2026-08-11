@@ -27,6 +27,24 @@ function buildForecastResponse(conditionCode: number, targetDate: string) {
   };
 }
 
+function buildForecastRangeResponse(targetDates: string[]) {
+  return {
+    forecast: {
+      forecastday: targetDates.map((date) => ({
+        date,
+        day: {
+          avgtemp_c: 20,
+          maxwind_kph: 10,
+          avghumidity: 60,
+          uv: 3,
+          daily_chance_of_rain: 30,
+          condition: { code: 1000 },
+        },
+      })),
+    },
+  };
+}
+
 function mockFetch(body: object, status = 200) {
   globalThis.fetch = mock(async () => {
     return new Response(JSON.stringify(body), {
@@ -69,35 +87,35 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
 
   test("code 1063 (Patchy rain possible) maps to drizzle", async () => {
     mockFetch(buildForecastResponse(1063, TARGET_DATE));
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("drizzle");
   });
 
   test("code 1000 (Clear) maps to clear", async () => {
     mockFetch(buildForecastResponse(1000, TARGET_DATE));
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("clear");
   });
 
   test("code 1189 (Moderate rain) maps to rain", async () => {
     mockFetch(buildForecastResponse(1189, TARGET_DATE));
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("rain");
   });
 
   test("code 1183 (Light rain) maps to drizzle", async () => {
     mockFetch(buildForecastResponse(1183, TARGET_DATE));
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("drizzle");
   });
 
   test("unknown code maps to unknown", async () => {
     mockFetch(buildForecastResponse(9999, TARGET_DATE));
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(35.68, 139.69, DATETIME);
     expect(weather.condition).toBe("unknown");
   });
@@ -125,7 +143,7 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
       buildForecastResponse(1000, targetDate),
     );
 
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
     const weather = await repo.getWeather(
       35.68,
       139.69,
@@ -146,13 +164,126 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
     );
     mockFetch(buildForecastResponse(1000, targetDate));
 
-    const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
+    const repo = new WeatherApiWeatherRepository("dummy-key");
 
     await expect(
       repo.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
     ).rejects.toThrow(
       `beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
     );
+  });
+});
+
+describe("WeatherApiWeatherRepository bounded acquisition", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("fetches a complete forecast range in one upstream request", async () => {
+    const startDate = getJstDateString();
+    const targetDates = [
+      startDate,
+      addDaysToDateString(startDate, 1),
+      addDaysToDateString(startDate, 2),
+    ];
+    const calls = mockFetchCapturingUrl(
+      buildForecastRangeResponse(targetDates),
+    );
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    const result = await repository.getWeatherBatch(
+      35.68,
+      139.69,
+      targetDates[0],
+      targetDates[2],
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(new URL(calls[0]).pathname).toBe("/v1/forecast.json");
+    expect(new URL(calls[0]).searchParams.get("days")).toBe("3");
+    expect(result.map((weather) => weather.datetime)).toEqual(
+      targetDates.map(getExpectedDailyDatetime),
+    );
+  });
+
+  test("rejects a batch range that starts before today", async () => {
+    const today = getJstDateString();
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(
+      repository.getWeatherBatch(
+        35.68,
+        139.69,
+        addDaysToDateString(today, -1),
+        today,
+      ),
+    ).rejects.toThrow("must start on or after today");
+  });
+
+  test("retries a retriable upstream failure no more than three times", async () => {
+    const targetDate = getJstDateString();
+    const fetchMock = mock(async () => {
+      return new Response(
+        JSON.stringify({ error: { message: "unavailable" } }),
+        {
+          status: 503,
+        },
+      );
+    });
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    const originalRandom = Math.random;
+    Math.random = () => 0;
+
+    try {
+      const repository = new WeatherApiWeatherRepository("dummy-key");
+      await expect(
+        repository.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
+      ).rejects.toThrow("Weather provider is unavailable");
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  test("does not retry a non-retriable upstream 4xx response", async () => {
+    const targetDate = getJstDateString();
+    const fetchMock = mock(async () => {
+      return new Response(JSON.stringify({ error: { message: "invalid" } }), {
+        status: 400,
+      });
+    });
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(
+      repository.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
+    ).rejects.toThrow("Failed to retrieve valid weather data");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("aborts an upstream request when its configured deadline expires", async () => {
+    const targetDate = getJstDateString();
+    globalThis.fetch = mock((_input: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(init.signal?.reason),
+        );
+      });
+    }) as typeof globalThis.fetch;
+    const repository = new WeatherApiWeatherRepository("dummy-key", {
+      requestTimeoutMs: 1,
+      maxAttempts: 1,
+    });
+
+    await expect(
+      repository.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
+    ).rejects.toThrow("Weather provider request timed out");
   });
 });
 

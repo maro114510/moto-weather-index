@@ -53,9 +53,7 @@ export async function getTouringIndex(c: Context<AppEnv>) {
     datetimeSource: queryParams.datetime ? "provided" : "auto_generated",
   });
 
-  // Get KV namespace from environment
-  const kv = c.env.OPEN_METEO_CACHE;
-  const weatherRepo = createWeatherRepository(kv, c.env.WEATHERAPI_KEY);
+  const weatherRepo = createWeatherRepository(c.env.WEATHERAPI_KEY);
 
   const weather = await weatherRepo.getWeather(lat, lon, datetime);
   const { score, breakdown } = calculateTouringIndex(weather);

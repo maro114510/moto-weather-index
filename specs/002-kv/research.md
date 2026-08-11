@@ -15,7 +15,7 @@
 ### KV Storage Integration
 **Decision**: Use existing KV binding pattern with additional namespace for rate limiting  
 **Rationale**:
-- `wrangler.toml` already configures KV namespaces (OPEN_METEO_CACHE example)
+- `wrangler.toml` no longer configures a KV namespace; rate limiting is delegated to Cloudflare edge controls.
 - Cloudflare Workers environment provides KV bindings automatically
 - Existing pattern: `c.env.KV_NAMESPACE.get/put` for storage operations
 **Alternatives considered**:

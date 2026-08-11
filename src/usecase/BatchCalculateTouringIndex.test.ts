@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { APP_CONFIG } from "../constants/appConfig";
 import type { Weather } from "../domain/Weather";
-import { getJstDateString } from "../utils/dateUtils";
+import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import {
   BatchCalculateTouringIndexUsecase,
   type Prefecture,
@@ -321,47 +321,23 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       expect(result.errors[0].error).toContain("Database connection failed");
     });
 
-    test("should retry failed operations", async () => {
-      // Create new mock that fails first 2 batch attempts, then succeeds
-      let attemptCount = 0;
+    test("does not retry a failed batch fetch in the usecase", async () => {
       const batchWeatherMock = mock(async () => {
-        attemptCount++;
-        if (attemptCount <= 2) {
-          throw new Error("Temporary failure");
-        }
-        return [
-          {
-            datetime: "2025-06-01T03:00:00Z",
-            condition: "clear",
-            temperature: 21.5,
-            windSpeed: 2.5,
-            humidity: 50,
-            visibility: 20,
-            precipitationProbability: 0,
-            uvIndex: 3,
-            airQuality: "low",
-          },
-        ] as Weather[];
+        throw new Error("Temporary failure");
       });
-
-      // Replace the mock
       mockWeatherRepository.getWeatherBatch = batchWeatherMock;
 
-      const targetDates = ["2025-06-01"];
-      const result = await usecase.execute(targetDates, 3); // Allow 3 retries
+      const result = await usecase.execute(["2025-06-01"]);
 
-      // Should eventually succeed after retries
-      expect(result.successful_inserts).toBe(2);
-      expect(result.failed_inserts).toBe(0);
-
-      // Should have been called multiple times due to retries
-      expect(mockWeatherRepository.getWeatherBatch).toHaveBeenCalled();
+      expect(result.successful_inserts).toBe(0);
+      expect(result.failed_inserts).toBe(2);
+      expect(batchWeatherMock).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("generateTargetDatesFromStart", () => {
     test("should generate correct dates from custom start date", () => {
-      // Mock Date to make "2025-06-10" within 7 days
+      // Mock Date to make the start date fall within the forecast window.
       const originalDate = Date;
       const mockDate = new Date("2025-06-15T00:00:00.000Z");
       global.Date = class extends Date {
@@ -378,7 +354,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       } as any;
 
       try {
-        const startDate = "2025-06-10";
+        const startDate = "2025-06-15";
         const days = 5;
 
         const dates =
@@ -388,11 +364,11 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           );
 
         expect(dates).toHaveLength(5);
-        expect(dates[0]).toBe("2025-06-10");
-        expect(dates[1]).toBe("2025-06-11");
-        expect(dates[2]).toBe("2025-06-12");
-        expect(dates[3]).toBe("2025-06-13");
-        expect(dates[4]).toBe("2025-06-14");
+        expect(dates[0]).toBe("2025-06-15");
+        expect(dates[1]).toBe("2025-06-16");
+        expect(dates[2]).toBe("2025-06-17");
+        expect(dates[3]).toBe("2025-06-18");
+        expect(dates[4]).toBe("2025-06-19");
       } finally {
         global.Date = originalDate;
       }
@@ -416,7 +392,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       } as any;
 
       try {
-        const startDate = "2025-06-10";
+        const startDate = "2025-06-15";
 
         const dates =
           BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
@@ -424,8 +400,8 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           );
 
         expect(dates).toHaveLength(APP_CONFIG.MAX_FORECAST_DAYS);
-        expect(dates[0]).toBe("2025-06-10");
-        expect(dates[APP_CONFIG.MAX_FORECAST_DAYS - 1]).toBe("2025-06-23");
+        expect(dates[0]).toBe("2025-06-15");
+        expect(dates[APP_CONFIG.MAX_FORECAST_DAYS - 1]).toBe("2025-06-28");
       } finally {
         global.Date = originalDate;
       }
@@ -438,13 +414,11 @@ describe("BatchCalculateTouringIndexUsecase", () => {
         BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
           invalidStartDate,
         );
-      }).toThrow("Batch start date must be within the last 7 days");
+      }).toThrow("Batch start date must be today or later");
     });
 
-    test("should work with date within last 7 days", () => {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 3); // 3 days ago
-      const startDate = pastDate.toISOString().split("T")[0];
+    test("should work with a future date in the forecast window", () => {
+      const startDate = addDaysToDateString(getJstDateString(), 3);
 
       const dates =
         BatchCalculateTouringIndexUsecase.generateTargetDatesFromStart(
