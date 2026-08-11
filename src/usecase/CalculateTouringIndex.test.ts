@@ -49,6 +49,7 @@ describe("CalculateTouringIndex", () => {
         visibility: 20,
         precipitationProbability: 0,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score clear weather as 30 points", () => {
@@ -91,6 +92,7 @@ describe("CalculateTouringIndex", () => {
         visibility: 20,
         precipitationProbability: 0,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score ideal temperature (21.5°C) as 20 points", () => {
@@ -134,6 +136,7 @@ describe("CalculateTouringIndex", () => {
         visibility: 20,
         precipitationProbability: 0,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score wind speed boundaries correctly", () => {
@@ -167,6 +170,7 @@ describe("CalculateTouringIndex", () => {
         visibility: 20,
         precipitationProbability: 0,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score humidity boundaries correctly", () => {
@@ -199,6 +203,7 @@ describe("CalculateTouringIndex", () => {
         humidity: 50,
         precipitationProbability: 0,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score visibility boundaries correctly", () => {
@@ -231,6 +236,7 @@ describe("CalculateTouringIndex", () => {
         humidity: 50,
         visibility: 20,
         uvIndex: 3,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score precipitation probability boundaries correctly", () => {
@@ -264,6 +270,7 @@ describe("CalculateTouringIndex", () => {
         humidity: 50,
         visibility: 20,
         precipitationProbability: 0,
+        airQuality: "low" as AirQualityLevel,
       };
 
       test("should score UV index boundaries correctly", () => {
@@ -297,10 +304,19 @@ describe("CalculateTouringIndex", () => {
         uvIndex: 3,
       };
 
-      test("should score undefined air quality as 5 points (best case)", () => {
+      test("should return an incomplete result when air quality is unavailable", () => {
         const weather: Weather = { ...baseWeather };
         const result = calculateTouringIndex(weather);
-        expect(result.breakdown.airQuality).toBe(5);
+        expect(result).toEqual({ missingFactors: ["airQuality"] });
+      });
+
+      test("should return an incomplete result when visibility is unavailable", () => {
+        const { visibility: _visibility, ...weather } = baseWeather;
+        const result = calculateTouringIndex(weather);
+
+        expect(result).toEqual({
+          missingFactors: ["visibility", "airQuality"],
+        });
       });
 
       test("should score low air quality as 5 points", () => {

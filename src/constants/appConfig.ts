@@ -8,9 +8,6 @@ export const APP_CONFIG = {
   // Timezone settings
   DEFAULT_TIMEZONE: "Asia/Tokyo",
 
-  // Weather data defaults
-  DEFAULT_VISIBILITY_KM: 20, // Default visibility in kilometers for daily weather data
-
   // Weather provider forecast window: WeatherAPI's forecast.json endpoint only
   // returns data for "today" (day 1) through day MAX_FORECAST_DAYS, so the
   // furthest valid forecast date is today + (MAX_FORECAST_DAYS - 1).

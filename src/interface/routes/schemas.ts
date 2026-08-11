@@ -6,6 +6,10 @@ import { WeatherConditionSchema } from "../../domain/Weather";
 export const ErrorResponseSchema = z
   .object({
     error: z.string().openapi({ example: "Something went wrong" }),
+    missingFactors: z
+      .array(z.enum(["visibility", "airQuality"]))
+      .optional()
+      .openapi({ example: ["visibility"] }),
   })
   .openapi("ErrorResponse");
 
@@ -34,7 +38,7 @@ export const WeatherResponseSchema = z
     temperature: z.number().openapi({ example: 25.5 }),
     windSpeed: z.number().openapi({ example: 5.2 }),
     humidity: z.number().openapi({ example: 60 }),
-    visibility: z.number().openapi({ example: 10 }),
+    visibility: z.number().optional().openapi({ example: 10 }),
     precipitationProbability: z.number().openapi({ example: 20 }),
     uvIndex: z.number().openapi({ example: 5 }),
     airQuality: z

@@ -36,6 +36,14 @@ export interface BatchProcessResult {
   }>;
 }
 
+interface PrefectureBatchResult {
+  committedInserts: number;
+  incompleteDates: Array<{
+    date: string;
+    missingFactors: string[];
+  }>;
+}
+
 export interface WeatherRepository {
   getWeather(lat: number, lon: number, datetime: string): Promise<Weather>;
   getWeatherBatch(
@@ -115,12 +123,20 @@ export class BatchCalculateTouringIndexUsecase {
             prefectureContext,
           );
 
-          const committedInserts = await this.processPrefectureBatch(
+          const prefectureResult = await this.processPrefectureBatch(
             prefecture,
             targetDates,
           );
 
-          result.successful_inserts += committedInserts;
+          result.successful_inserts += prefectureResult.committedInserts;
+          for (const incompleteDate of prefectureResult.incompleteDates) {
+            result.failed_inserts++;
+            result.errors.push({
+              prefecture_id: prefecture.id,
+              date: incompleteDate.date,
+              error: `Incomplete weather data: ${incompleteDate.missingFactors.join(", ")}`,
+            });
+          }
 
           logger.debug("Successfully processed prefecture batch", {
             ...prefectureContext,
@@ -195,7 +211,7 @@ export class BatchCalculateTouringIndexUsecase {
   private async processPrefectureBatch(
     prefecture: Prefecture,
     targetDates: string[],
-  ): Promise<number> {
+  ): Promise<PrefectureBatchResult> {
     const context = {
       operation: "process_prefecture_batch",
       prefecture: {
@@ -235,6 +251,7 @@ export class BatchCalculateTouringIndexUsecase {
     });
 
     const batchItems: TouringIndexBatchItem[] = [];
+    const incompleteDates: PrefectureBatchResult["incompleteDates"] = [];
 
     // Calculate every record before publishing the prefecture range.
     for (let i = 0; i < targetDates.length; i++) {
@@ -253,7 +270,16 @@ export class BatchCalculateTouringIndexUsecase {
       });
 
       // Calculate touring index
-      const { score, breakdown } = calculateTouringIndex(weatherData);
+      const touringIndex = calculateTouringIndex(weatherData);
+      if ("missingFactors" in touringIndex) {
+        incompleteDates.push({
+          date,
+          missingFactors: touringIndex.missingFactors,
+        });
+        continue;
+      }
+
+      const { score, breakdown } = touringIndex;
 
       logger.debug("Touring index calculated for date", {
         ...context,
@@ -269,6 +295,10 @@ export class BatchCalculateTouringIndexUsecase {
         weather_factors_json: JSON.stringify(breakdown),
         weather_raw_json: JSON.stringify(weatherData),
       });
+    }
+
+    if (batchItems.length === 0) {
+      return { committedInserts: 0, incompleteDates };
     }
 
     logger.dbOperation("upsertTouringIndexes", "touring_index", {
@@ -291,7 +321,7 @@ export class BatchCalculateTouringIndexUsecase {
       datesProcessed: targetDates.length,
     });
 
-    return committedInserts;
+    return { committedInserts, incompleteDates };
   }
 
   /**

@@ -127,6 +127,14 @@ export const touringIndexRoute = createRoute({
         },
       },
     },
+    422: {
+      description: "Required weather observations are unavailable",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
   },
 });
 

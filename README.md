@@ -55,13 +55,13 @@ unknown:      10 points  // Fallback when condition cannot be determined
 
 ```typescript
 idealTemp = 21.5°C
-score = 20 - (|temperature - idealTemp| * 2)
+score = 20 - |temperature - idealTemp|
 score = Math.max(0, Math.min(20, Math.round(score)))
 
 // Examples:
 // 21.5°C = 20 points (ideal)
-// 16.5°C or 26.5°C = 10 points (±5°C from ideal)
-// <11.5°C or >31.5°C = 0 points (too extreme)
+// 16.5°C or 26.5°C = 15 points (±5°C from ideal)
+// <=1.5°C or >=41.5°C = 0 points (too extreme)
 ```
 
 #### Wind Speed Score (0-15 points)
@@ -120,7 +120,17 @@ return 0;  // High UV risk (>6)
 low: 5 points      // Clean air
 medium: 3 points   // Moderate pollution
 high: 0 points     // Poor air quality
-undefined: 5 points // Assume best case
+```
+
+All eight factors must be observed by WeatherAPI before the API publishes a
+score. If visibility or air quality is unavailable, `GET /api/v1/touring-index`
+returns HTTP 422 without a `score` and identifies the unavailable factors:
+
+```json
+{
+  "error": "Touring index is unavailable because required weather observations are missing",
+  "missingFactors": ["visibility", "airQuality"]
+}
 ```
 
 ## 🚀 API Endpoints
