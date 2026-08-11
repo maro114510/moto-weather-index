@@ -74,4 +74,19 @@ describe("D1TouringIndexRepository", () => {
       "Failed to atomically upsert touring index range",
     );
   });
+
+  test("does not report a commit when a D1 statement is unsuccessful", async () => {
+    const bind = mock(() => ({}) as D1PreparedStatement);
+    const repository = new D1TouringIndexRepository({
+      prepare: mock(() => ({ bind }) as unknown as D1PreparedStatement),
+      batch: mock(async () => [
+        successfulResult(),
+        { ...successfulResult(), success: false },
+      ]),
+    } as unknown as D1Database);
+
+    await expect(repository.upsertTouringIndexes(items)).rejects.toThrow(
+      "Failed to atomically upsert touring index range",
+    );
+  });
 });
