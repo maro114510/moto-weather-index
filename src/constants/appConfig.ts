@@ -8,9 +8,6 @@ export const APP_CONFIG = {
   // Timezone settings
   DEFAULT_TIMEZONE: "Asia/Tokyo",
 
-  // Cache settings
-  CACHE_EXPIRATION_HOURS: 3,
-
   // Weather data defaults
   DEFAULT_VISIBILITY_KM: 20, // Default visibility in kilometers for daily weather data
 
@@ -19,11 +16,7 @@ export const APP_CONFIG = {
   // furthest valid forecast date is today + (MAX_FORECAST_DAYS - 1).
   MAX_FORECAST_DAYS: 14,
 
-  // API URLs
-  OPEN_METEO_API_BASE_URL: "https://api.open-meteo.com/v1",
-  OPEN_METEO_FORECAST_ENDPOINT: "/forecast",
+  // WeatherAPI request policy. `MAX_ATTEMPTS` includes the initial request.
+  WEATHER_API_REQUEST_TIMEOUT_MS: 10_000,
+  WEATHER_API_MAX_ATTEMPTS: 3,
 } as const;
-
-// Helper to get full API URL
-export const getOpenMeteoForecastUrl = () =>
-  `${APP_CONFIG.OPEN_METEO_API_BASE_URL}${APP_CONFIG.OPEN_METEO_FORECAST_ENDPOINT}`;

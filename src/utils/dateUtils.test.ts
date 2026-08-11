@@ -127,23 +127,11 @@ describe("dateUtils", () => {
       expect(() => validateBatchStartDate(today)).not.toThrow();
     });
 
-    test("should accept date within last 7 days", () => {
-      const dateString = addDaysToDateString(getJstDateString(), -3);
-
-      expect(() => validateBatchStartDate(dateString)).not.toThrow();
-    });
-
-    test("should accept exactly 7 days ago", () => {
-      const dateString = addDaysToDateString(getJstDateString(), -7);
-
-      expect(() => validateBatchStartDate(dateString)).not.toThrow();
-    });
-
-    test("should reject date older than 7 days", () => {
-      const dateString = addDaysToDateString(getJstDateString(), -8);
+    test("should reject a date before today", () => {
+      const dateString = addDaysToDateString(getJstDateString(), -1);
 
       expect(() => validateBatchStartDate(dateString)).toThrow(
-        "Batch start date must be within the last 7 days",
+        "Batch start date must be today or later",
       );
     });
 

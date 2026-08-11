@@ -18,7 +18,6 @@ export {};
 // Cloudflare Workers types
 declare global {
   interface Env {
-    OPEN_METEO_CACHE: KVNamespace;
     DB: D1Database;
   }
 

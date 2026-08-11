@@ -9,7 +9,6 @@ const { app } = await import("./router");
 
 const testEnv = {
   WEATHERAPI_KEY: "test-key",
-  OPEN_METEO_CACHE: {} as KVNamespace,
   DB: {} as D1Database,
 };
 

@@ -103,7 +103,7 @@ export function validateDateRange(startDate: string, endDate: string): void {
 }
 
 /**
- * Validate batch start date - must be within the last 7 days
+ * Validate batch start date - must be within the forecast window
  * @param startDate Start date in YYYY-MM-DD format
  * @throws Error if start date is invalid
  */
@@ -121,12 +121,8 @@ export function validateBatchStartDate(startDate: string): void {
   start.setUTCHours(0, 0, 0, 0);
   today.setUTCHours(0, 0, 0, 0);
 
-  // Check if start date is within the last 7 days (including today)
-  const weekAgo = new Date(today);
-  weekAgo.setUTCDate(today.getUTCDate() - 7);
-
-  if (start < weekAgo) {
-    throw new Error("Batch start date must be within the last 7 days");
+  if (start < today) {
+    throw new Error("Batch start date must be today or later");
   }
 
   // Don't allow dates beyond the provider's forecast window, anchored to the

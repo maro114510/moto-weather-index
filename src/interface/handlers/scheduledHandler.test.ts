@@ -31,7 +31,6 @@ function buildResult(
 describe("scheduledHandler", () => {
   const fakeEnv = {
     DB: {} as any,
-    OPEN_METEO_CACHE: {} as any,
     WEATHERAPI_KEY: "dummy-key",
   };
   const fakeController = {} as ScheduledController;

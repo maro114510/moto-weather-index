@@ -107,13 +107,25 @@ class FetchHttpError extends Error {
 
 export class WeatherApiWeatherRepository implements WeatherRepository {
   private readonly apiKey?: string;
+  private readonly requestTimeoutMs: number;
+  private readonly maxAttempts: number;
 
-  constructor(kv?: KVNamespace, apiKey?: string) {
+  constructor(
+    apiKey?: string,
+    options: {
+      requestTimeoutMs?: number;
+      maxAttempts?: number;
+    } = {},
+  ) {
     this.apiKey = apiKey;
+    this.requestTimeoutMs =
+      options.requestTimeoutMs ?? APP_CONFIG.WEATHER_API_REQUEST_TIMEOUT_MS;
+    this.maxAttempts =
+      options.maxAttempts ?? APP_CONFIG.WEATHER_API_MAX_ATTEMPTS;
     logger.info("WeatherApiWeatherRepository initialized", {
       operation: "repository_init",
-      cacheEnabled: !!kv,
-      cacheExpirationHours: APP_CONFIG.CACHE_EXPIRATION_HOURS,
+      requestTimeoutMs: this.requestTimeoutMs,
+      maxAttempts: this.maxAttempts,
     });
   }
 
@@ -138,6 +150,69 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     datetime: string,
   ): Promise<Weather> {
     return this.fetchFromApi(lat, lon, datetime);
+  }
+
+  private async requestWeatherApi(
+    url: string,
+    params: Record<string, string>,
+  ): Promise<{ status: number; data: any }> {
+    const shouldRetry = (error: unknown) => {
+      if (error instanceof FetchHttpError) {
+        return error.status < 400 || error.status >= 500;
+      }
+      return true;
+    };
+
+    const fullUrl = `${url}?${new URLSearchParams(params).toString()}`;
+    for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
+      const startedAt = Date.now();
+      try {
+        const response = await fetch(fullUrl, {
+          signal: AbortSignal.timeout(this.requestTimeoutMs),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new FetchHttpError(response.status, response.statusText, data);
+        }
+
+        logger.externalApiResponse(
+          "WeatherAPI",
+          url,
+          response.status,
+          Date.now() - startedAt,
+          { responseSize: JSON.stringify(data).length, attempt },
+        );
+        return { status: response.status, data };
+      } catch (error) {
+        const status =
+          error instanceof FetchHttpError ? error.status : undefined;
+        const statusText =
+          error instanceof FetchHttpError ? error.statusText : undefined;
+        const willRetry = shouldRetry(error) && attempt < this.maxAttempts;
+        logger.warn(
+          "WeatherAPI request error",
+          {
+            operation: "api_request_error",
+            attempt,
+            willRetry,
+            statusCode: status,
+            statusText,
+            errorCode: error instanceof Error ? error.name : undefined,
+            url,
+          },
+          error instanceof Error ? error : undefined,
+        );
+        if (!willRetry) throw error;
+
+        const backoff = Math.min(3000, 300 * 2 ** (attempt - 1));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.floor(Math.random() * backoff)),
+        );
+      }
+    }
+
+    throw new Error("WeatherAPI attempt budget exhausted");
   }
 
   private async fetchFromApi(
@@ -226,90 +301,8 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       },
     });
 
-    // Request with exponential backoff (no retry for 429 or other 4xx)
-    const maxRetries = 3;
-    const baseDelayMs = 300; // start small to avoid unnecessary load
-    const capMs = 3000; // keep within a reasonable upper bound
-
-    const shouldRetry = (err: unknown) => {
-      if (err instanceof FetchHttpError) {
-        const status = err.status;
-        // Do not retry on 429 (rate limit) or other 4xx (considered fatal)
-        if (status === 429 || (status >= 400 && status < 500)) {
-          return false;
-        }
-      }
-      // Retry on network errors/timeouts and 5xx
-      return true;
-    };
-
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-    const requestWithBackoff = async (): Promise<{
-      status: number;
-      data: any;
-    }> => {
-      let attempt = 0;
-      const fullUrl = `${url}?${new URLSearchParams(params).toString()}`;
-      // First attempt + retries up to maxRetries
-      while (true) {
-        const startedAt = Date.now();
-        try {
-          const response = await fetch(fullUrl);
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new FetchHttpError(
-              response.status,
-              response.statusText,
-              data,
-            );
-          }
-
-          const apiDuration = Date.now() - startedAt;
-          logger.externalApiResponse(
-            "WeatherAPI",
-            url,
-            response.status,
-            apiDuration,
-            {
-              responseSize: JSON.stringify(data).length,
-              attempt,
-            },
-          );
-          return { status: response.status, data };
-        } catch (e) {
-          const status = e instanceof FetchHttpError ? e.status : undefined;
-          const statusText =
-            e instanceof FetchHttpError ? e.statusText : undefined;
-          const canRetry = shouldRetry(e) && attempt < maxRetries;
-          logger.warn(
-            "WeatherAPI request error",
-            {
-              operation: "api_request_error",
-              attempt,
-              willRetry: canRetry,
-              statusCode: status,
-              statusText,
-              errorCode: e instanceof Error ? e.name : undefined,
-              url,
-            },
-            e instanceof Error ? e : undefined,
-          );
-
-          if (!canRetry) throw e;
-
-          // Exponential backoff with full jitter
-          const backoff = Math.min(capMs, baseDelayMs * 2 ** attempt);
-          const delay = Math.floor(Math.random() * backoff);
-          await sleep(delay);
-          attempt += 1;
-        }
-      }
-    };
-
     try {
-      const res = await requestWithBackoff();
+      const res = await this.requestWeatherApi(url, params);
 
       // Parse response based on endpoint type
       let day: any;
@@ -477,7 +470,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
 
         logger.error("WeatherAPI request failed", errorContext, error);
 
-        if (error.name === "AbortError") {
+        if (error.name === "AbortError" || error.name === "TimeoutError") {
           throw new HttpError(
             HTTP_STATUS.GATEWAY_TIMEOUT,
             "Weather provider request timed out",
@@ -510,7 +503,6 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
     startDate: string,
     endDate: string,
   ): Promise<Weather[]> {
-    // Build an array of dates inclusively
     const start = new Date(`${startDate}T00:00:00Z`);
     const end = new Date(`${endDate}T00:00:00Z`);
 
@@ -524,28 +516,121 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       throw new Error("Start date must be less than or equal to end date");
     }
 
-    const days: string[] = [];
-    // Include the range inclusively: start <= date <= end
+    const today = getJstDateString();
+    const maxForecastDate = addDaysToDateString(
+      today,
+      APP_CONFIG.MAX_FORECAST_DAYS - 1,
+    );
+    if (startDate < today) {
+      throw new Error("Batch weather range must start on or after today");
+    }
+    if (endDate > maxForecastDate) {
+      throw new Error(
+        `Batch weather range exceeds forecast boundary: ${maxForecastDate}`,
+      );
+    }
+
+    const targetDates: string[] = [];
     for (
       let d = new Date(start);
       d.getTime() <= end.getTime();
       d.setUTCDate(d.getUTCDate() + 1)
     ) {
-      days.push(d.toISOString().slice(0, 10));
+      targetDates.push(d.toISOString().slice(0, 10));
     }
 
-    // Safety check: return empty array if no days were generated
-    if (days.length === 0) {
-      return [];
-    }
+    const url = "https://api.weatherapi.com/v1/forecast.json";
+    const params = {
+      key: this.getApiKey(),
+      q: `${lat},${lon}`,
+      days: String(targetDates.length),
+      aqi: "no",
+      alerts: "no",
+    };
+    logger.externalApiCall("WeatherAPI", url, {
+      operation: "fetch_weather_api_batch",
+      params: { q: params.q, days: params.days, endpoint: "forecast" },
+    });
 
-    // Fetch weather data individually for each date
-    const results: Weather[] = [];
-    for (const dateStr of days) {
-      const weather = await this.getWeather(lat, lon, `${dateStr}T03:00:00Z`); // 12:00 JST = 03:00 UTC
-      results.push(weather);
-    }
+    try {
+      const response = await this.requestWeatherApi(url, params);
+      const daysByDate = new Map<string, any>(
+        (response.data?.forecast?.forecastday ?? []).map((forecastDay: any) => [
+          forecastDay.date,
+          forecastDay.day,
+        ]),
+      );
 
-    return results;
+      return targetDates.map((date) => {
+        const day = daysByDate.get(date);
+        if (!day) {
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            `WeatherAPI response is missing weather data for ${date}`,
+            {
+              code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+              details: { location: { lat, lon }, date },
+            },
+          );
+        }
+
+        for (const [field, value] of [
+          ["avgtemp_c", day.avgtemp_c],
+          ["maxwind_kph", day.maxwind_kph],
+          ["avghumidity", day.avghumidity],
+          ["uv", day.uv],
+        ]) {
+          if (typeof value !== "number" || Number.isNaN(value)) {
+            throw new HttpError(
+              HTTP_STATUS.BAD_GATEWAY,
+              `Invalid WeatherAPI response: ${field}`,
+              {
+                code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+                details: { field, location: { lat, lon }, date },
+              },
+            );
+          }
+        }
+
+        const conditionCode: number | undefined = day.condition?.code;
+        return {
+          datetime: `${date}T03:00:00Z`,
+          condition: conditionCode
+            ? mapWeatherApiCodeToCondition(conditionCode)
+            : "unknown",
+          temperature: day.avgtemp_c,
+          windSpeed: day.maxwind_kph / 3.6,
+          humidity: day.avghumidity,
+          visibility: APP_CONFIG.DEFAULT_VISIBILITY_KM,
+          precipitationProbability: parseAndClampPrecipitationProbability(
+            day.daily_chance_of_rain,
+            "daily_chance_of_rain",
+          ),
+          uvIndex: day.uv,
+        } satisfies Weather;
+      });
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      if (error instanceof FetchHttpError) {
+        throw new HttpError(
+          error.status >= 400 && error.status < 500
+            ? HTTP_STATUS.BAD_GATEWAY
+            : HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Failed to retrieve weather data from upstream provider",
+          { code: ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE, cause: error },
+        );
+      }
+      if (
+        error instanceof Error &&
+        (error.name === "AbortError" || error.name === "TimeoutError")
+      ) {
+        throw new HttpError(
+          HTTP_STATUS.GATEWAY_TIMEOUT,
+          "Weather provider request timed out",
+          { code: ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT, cause: error },
+        );
+      }
+      throw error;
+    }
   }
 }

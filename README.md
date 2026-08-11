@@ -307,8 +307,8 @@ The API is deployed on Cloudflare Workers with the following configuration:
 #### Automatic Scheduled Tasks
 
 - **Cron Schedule**: Daily at 04:00 JST (19:00 UTC)
-- **Operation**: Batch calculation for all Japanese prefectures (next 16 days)
-- **Retry Logic**: Up to 3 attempts per failed operation
+- **Operation**: Batch calculation for all Japanese prefectures (next 14 days)
+- **Retry Logic**: Up to 3 upstream attempts per prefecture range
 - **Execution Path**: Batch processing runs only from the scheduled worker event (no public HTTP batch endpoint)
 
 #### Environment Configuration
@@ -324,9 +324,6 @@ LOG_LEVEL = "INFO"
 
 [triggers]
 crons = ["0 19 * * *"]  # Daily at JST 4:00
-
-[[kv_namespaces]]
-binding = "OPEN_METEO_CACHE"
 
 [[d1_databases]]
 binding = "DB"

@@ -22,13 +22,9 @@ export async function scheduledHandler(
   try {
     // Default parameters for scheduled execution
     const days = APP_CONFIG.MAX_FORECAST_DAYS;
-    const maxRetries = 3;
 
     // Create repositories and usecase
-    const weatherRepo = createWeatherRepository(
-      env.OPEN_METEO_CACHE,
-      env.WEATHERAPI_KEY,
-    );
+    const weatherRepo = createWeatherRepository(env.WEATHERAPI_KEY);
     const touringIndexRepo = createTouringIndexRepository(env.DB);
     const batchUsecase = createBatchCalculateTouringIndexUsecase(
       weatherRepo,
@@ -67,7 +63,7 @@ export async function scheduledHandler(
 
     // Execute batch processing
     const startTime = Date.now();
-    const result = await batchUsecase.execute(targetDates, maxRetries);
+    const result = await batchUsecase.execute(targetDates);
     const endTime = Date.now();
     const duration = endTime - startTime;
 
