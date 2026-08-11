@@ -44,12 +44,14 @@ function validateDateFormat(dateString: string, fieldName: string): void {
   }
 
   // Additional check: ensure the date string matches what Date constructor parsed
-  // This catches cases like "2025-02-30" which gets silently converted
+  // This catches cases like "2025-02-30" which gets silently converted.
+  // Use UTC getters: a date-only string like "2025-06-15" is parsed as UTC
+  // midnight, so local getters would misread it on non-UTC hosts.
   const [year, month, day] = dateString.split("-").map(Number);
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
   ) {
     throw new Error(`${fieldName} is not a valid date`);
   }
@@ -109,16 +111,19 @@ export function validateBatchStartDate(startDate: string): void {
   // Validate date format first
   validateDateFormat(startDate, "startDate");
 
+  // Both are already UTC midnight (a date-only string is parsed as such);
+  // use UTC accessors throughout so this doesn't depend on the host's local
+  // timezone.
   const start = new Date(startDate);
   const today = new Date(`${getJstDateString()}T00:00:00Z`);
 
   // Set time to start of day for accurate comparison
-  start.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
+  start.setUTCHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   // Check if start date is within the last 7 days (including today)
   const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 7);
+  weekAgo.setUTCDate(today.getUTCDate() - 7);
 
   if (start < weekAgo) {
     throw new Error("Batch start date must be within the last 7 days");
@@ -128,7 +133,7 @@ export function validateBatchStartDate(startDate: string): void {
   // Asia/Tokyo business date (see APP_CONFIG.MAX_FORECAST_DAYS)
   const maxFutureDays = APP_CONFIG.MAX_FORECAST_DAYS - 1;
   const maxFutureDate = new Date(today);
-  maxFutureDate.setDate(today.getDate() + maxFutureDays);
+  maxFutureDate.setUTCDate(today.getUTCDate() + maxFutureDays);
 
   if (start > maxFutureDate) {
     throw new Error(

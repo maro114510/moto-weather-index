@@ -366,9 +366,15 @@ export class BatchCalculateTouringIndexUsecase {
     days: number = APP_CONFIG.MAX_FORECAST_DAYS,
   ): string[] {
     const today = getJstDateString();
+    // Cap so an explicit `days` argument can never generate a date beyond
+    // the provider's forecast boundary (see APP_CONFIG.MAX_FORECAST_DAYS)
+    const effectiveDays = Math.max(
+      0,
+      Math.min(days, APP_CONFIG.MAX_FORECAST_DAYS),
+    );
     const dates: string[] = [];
 
-    for (let i = 0; i < days; i++) {
+    for (let i = 0; i < effectiveDays; i++) {
       dates.push(addDaysToDateString(today, i));
     }
 

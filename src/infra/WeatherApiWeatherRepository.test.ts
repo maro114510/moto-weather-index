@@ -36,6 +36,18 @@ function mockFetch(body: object, status = 200) {
   }) as any;
 }
 
+function mockFetchCapturingUrl(body: object, status = 200) {
+  const calls: string[] = [];
+  globalThis.fetch = mock(async (input: any) => {
+    calls.push(String(input));
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as any;
+  return calls;
+}
+
 // ---------------------------------------------------------------------------
 // Unit tests — condition code mapping (via public interface, fetch mocked)
 // ---------------------------------------------------------------------------
@@ -109,7 +121,9 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
       getJstDateString(),
       APP_CONFIG.MAX_FORECAST_DAYS - 1,
     );
-    mockFetch(buildForecastResponse(1000, targetDate));
+    const calls = mockFetchCapturingUrl(
+      buildForecastResponse(1000, targetDate),
+    );
 
     const repo = new WeatherApiWeatherRepository(undefined, "dummy-key");
     const weather = await repo.getWeather(
@@ -119,6 +133,10 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
     );
 
     expect(weather.condition).toBe("clear");
+    // The adapter must request the full MAX_FORECAST_DAYS window — one day
+    // short would mean WeatherAPI never returns the boundary date at all.
+    const requestedDays = new URL(calls[0]).searchParams.get("days");
+    expect(requestedDays).toBe(String(APP_CONFIG.MAX_FORECAST_DAYS));
   });
 
   test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS)", async () => {
@@ -132,7 +150,9 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
 
     await expect(
       repo.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
-    ).rejects.toThrow("beyond WeatherAPI forecast range");
+    ).rejects.toThrow(
+      `beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
+    );
   });
 });
 

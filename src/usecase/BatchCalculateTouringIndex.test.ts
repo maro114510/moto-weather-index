@@ -165,6 +165,15 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       const dates = BatchCalculateTouringIndexUsecase.generateTargetDates();
       expect(dates).toHaveLength(APP_CONFIG.MAX_FORECAST_DAYS);
     });
+
+    test("caps an explicit days argument at MAX_FORECAST_DAYS", () => {
+      const dates = BatchCalculateTouringIndexUsecase.generateTargetDates(
+        APP_CONFIG.MAX_FORECAST_DAYS + 1,
+      );
+      // A days count beyond MAX_FORECAST_DAYS would otherwise generate
+      // today + MAX_FORECAST_DAYS, one day past the provider's boundary.
+      expect(dates).toHaveLength(APP_CONFIG.MAX_FORECAST_DAYS);
+    });
   });
 
   describe("execute", () => {
