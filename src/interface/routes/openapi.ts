@@ -3,12 +3,13 @@ import {
   ErrorResponseSchema,
   HealthResponseSchema,
   PrefectureListResponseSchema,
+  ReadinessResponseSchema,
   TouringIndexHistoryResponseSchema,
   TouringIndexResponseSchema,
   WeatherResponseSchema,
 } from "./schemas";
 
-// Health check route
+// Health check route (liveness — always ok while the process is running)
 export const healthRoute = createRoute({
   method: "get",
   path: "/health",
@@ -21,6 +22,36 @@ export const healthRoute = createRoute({
       content: {
         "application/json": {
           schema: HealthResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Readiness route (dependency/data-freshness — reflects the latest
+// scheduled run's coverage and freshness, independent of liveness)
+export const readinessRoute = createRoute({
+  method: "get",
+  path: "/health/ready",
+  summary: "Readiness check endpoint",
+  description:
+    "Reports whether the latest scheduled run achieved full prefecture/date coverage within the freshness threshold",
+  tags: ["Health"],
+  responses: {
+    200: {
+      description: "Ready: latest scheduled run is complete and fresh",
+      content: {
+        "application/json": {
+          schema: ReadinessResponseSchema,
+        },
+      },
+    },
+    503: {
+      description:
+        "Not ready: no run recorded, coverage incomplete, or data stale",
+      content: {
+        "application/json": {
+          schema: ReadinessResponseSchema,
         },
       },
     },

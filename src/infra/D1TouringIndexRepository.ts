@@ -15,6 +15,14 @@ interface TouringIndexRecord {
   calculated_at: string;
 }
 
+// SQLite's datetime('now') (the column default) renders as
+// "YYYY-MM-DD HH:MM:SS" — space-separated UTC, no fractional seconds.
+// Normalize an ISO timestamp to that shape so string comparison against
+// calculated_at is correct.
+function toSqliteDatetime(isoTimestamp: string): string {
+  return isoTimestamp.replace("T", " ").slice(0, 19);
+}
+
 export class D1TouringIndexRepository implements TouringIndexRepository {
   constructor(private db: D1Database) {
     logger.info("D1TouringIndexRepository initialized", {
@@ -240,6 +248,67 @@ export class D1TouringIndexRepository implements TouringIndexRepository {
       );
 
       throw new Error(`Failed to get touring index count: ${error}`);
+    }
+  }
+
+  /**
+   * Count touring index rows actually committed by a specific run, within a
+   * date range and written at or after that run's start time. Used to
+   * measure real D1 coverage independent of a batch run's own self-reported
+   * success/failure counters. The `since` filter matters: without it, rows
+   * left over from a previous successful run would mask a partial failure
+   * in the current run for overlapping dates.
+   */
+  async getCommittedCoverageCount(
+    startDate: string,
+    endDate: string,
+    sinceIso: string,
+  ): Promise<number> {
+    const context = {
+      operation: "get_committed_coverage_count",
+      startDate,
+      endDate,
+      sinceIso,
+    };
+
+    logger.debug("Starting committed coverage count", context);
+
+    const sql = `
+      SELECT COUNT(*) as count
+      FROM touring_index_daily
+      WHERE date >= ? AND date <= ? AND calculated_at >= ?
+    `;
+
+    try {
+      const dbStartTime = Date.now();
+      const result = await this.db
+        .prepare(sql)
+        .bind(startDate, endDate, toSqliteDatetime(sinceIso))
+        .first<{ count: number }>();
+      const dbDuration = Date.now() - dbStartTime;
+      const count = result?.count || 0;
+
+      logger.debug("Committed coverage count completed", {
+        ...context,
+        operation: "get_committed_coverage_count_success",
+        dbDuration,
+        count,
+      });
+
+      return count;
+    } catch (error) {
+      logger.error(
+        "Failed to get committed coverage count",
+        {
+          ...context,
+          operation: "get_committed_coverage_count_error",
+          sql: sql.replace(/\s+/g, " ").trim(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        error as Error,
+      );
+
+      throw new Error(`Failed to get committed coverage count: ${error}`);
     }
   }
 

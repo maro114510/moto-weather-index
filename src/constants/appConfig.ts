@@ -19,4 +19,9 @@ export const APP_CONFIG = {
   // WeatherAPI request policy. `MAX_ATTEMPTS` includes the initial request.
   WEATHER_API_REQUEST_TIMEOUT_MS: 10_000,
   WEATHER_API_MAX_ATTEMPTS: 3,
+
+  // Scheduled batch runs once per 24h (see wrangler.toml crons). Readiness
+  // is considered stale after this many hours without a successful run,
+  // allowing a grace window beyond one cron cycle for transient delays.
+  FRESHNESS_THRESHOLD_HOURS: 26,
 } as const;
