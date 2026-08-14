@@ -160,6 +160,21 @@ describe("scheduledHandler", () => {
     ).rejects.toThrow(/incomplete/i);
   });
 
+  test("throws when outcome status is incomplete even though the usecase reported zero errors", async () => {
+    mockExecute.mockResolvedValue(buildResult());
+    mockGetCommittedCoverageCount.mockResolvedValue(600);
+    mockRecordOutcome.mockResolvedValue({
+      status: "partial",
+      committedCount: 600,
+      expectedCount: 658,
+      failureCount: 0,
+    });
+
+    await expect(
+      scheduledHandler(fakeController, fakeEnv as any, fakeCtx),
+    ).rejects.toThrow(/incomplete/i);
+  });
+
   test("propagates the original error when execute() itself rejects, and records a failure outcome", async () => {
     mockExecute.mockRejectedValue(new Error("DB unreachable"));
 

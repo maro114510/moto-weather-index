@@ -122,18 +122,21 @@ export async function scheduledHandler(
       },
     });
 
-    if (result.errors.length > 0) {
+    if (outcome.status !== "success" || result.errors.length > 0) {
       logger.warn("Batch processing completed with errors", {
         operation: "batch_processing",
         runId,
         errorCount: result.errors.length,
         errors: result.errors,
+        outcomeStatus: outcome.status,
       });
 
       // Incomplete coverage must fail the scheduled invocation so Cloudflare
-      // reports the run as failed instead of a silent partial success.
+      // reports the run as failed instead of a silent partial success. Gate
+      // on outcome.status (measured D1 coverage), not just result.errors —
+      // the usecase's self-reported counters are not trusted (see #107).
       throw new Error(
-        `Scheduled batch processing incomplete: ${result.failed_inserts}/${result.total_processed} records failed`,
+        `Scheduled batch processing incomplete: committed ${committedCount}/${result.total_processed} rows (${result.failed_inserts}/${result.total_processed} records failed)`,
       );
     }
   } catch (error) {
