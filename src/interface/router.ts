@@ -10,7 +10,7 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { AppEnv } from "../types/env";
 import { logger } from "../utils/logger";
-import { healthCheck } from "./handlers/healthHandler";
+import { healthCheck, readinessCheck } from "./handlers/healthHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
   getTouringIndex,
@@ -22,6 +22,7 @@ import { loggingMiddleware } from "./middleware/logging";
 import {
   healthRoute,
   prefectureListRoute,
+  readinessRoute,
   touringIndexHistoryRoute,
   touringIndexRoute,
   weatherRoute,
@@ -168,6 +169,7 @@ app.notFound((c) => {
 
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);
+app.openapi(readinessRoute, readinessCheck);
 app.openapi(weatherRoute, getWeather);
 app.openapi(touringIndexRoute, getTouringIndex);
 app.openapi(touringIndexHistoryRoute, getTouringIndexHistory);

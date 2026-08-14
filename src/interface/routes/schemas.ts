@@ -29,6 +29,30 @@ export const HealthResponseSchema = z
   })
   .openapi("HealthResponse");
 
+export const ReadinessResponseSchema = z
+  .object({
+    ready: z.boolean().openapi({ example: true }),
+    reason: z
+      .enum(["ok", "no_run_recorded", "incomplete_coverage", "stale"])
+      .openapi({ example: "ok" }),
+    lastRun: z
+      .object({
+        runId: z.string().openapi({ example: "b3b1f7e0-..." }),
+        status: z.enum(["success", "partial", "failed"]).openapi({
+          example: "success",
+        }),
+        finishedAt: z.string().openapi({ example: "2024-01-01T04:05:00.000Z" }),
+        expectedCount: z.number().openapi({ example: 658 }),
+        committedCount: z.number().openapi({ example: 658 }),
+      })
+      .nullable()
+      .openapi({ description: "The most recently recorded scheduled run" }),
+    ageMs: z.number().nullable().openapi({ example: 3_600_000 }),
+    thresholdMs: z.number().openapi({ example: 93_600_000 }),
+    timestamp: z.string().openapi({ example: "2024-01-01T00:00:00.000Z" }),
+  })
+  .openapi("ReadinessResponse");
+
 export const WeatherResponseSchema = z
   .object({
     datetime: z.string().openapi({ example: "2024-01-01T12:00:00Z" }),
