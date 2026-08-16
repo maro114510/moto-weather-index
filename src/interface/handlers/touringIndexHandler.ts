@@ -73,7 +73,7 @@ export async function getTouringIndex(c: Context<AppEnv>) {
 
   const response = {
     location: { lat, lon },
-    datetime,
+    datetime: weather.datetime,
     score,
     factors: breakdown,
   };
@@ -82,7 +82,7 @@ export async function getTouringIndex(c: Context<AppEnv>) {
     ...requestContext,
     operation: "touring_index_success",
     location: { lat, lon },
-    datetime,
+    datetime: weather.datetime,
     score,
     weatherCondition: weather.condition,
     temperature: weather.temperature,

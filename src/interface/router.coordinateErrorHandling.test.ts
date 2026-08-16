@@ -79,16 +79,19 @@ describe("coordinate-dependent upstream error handling", () => {
               forecastday: [
                 {
                   date: "2026-02-09",
-                  air_quality: { "us-epa-index": 1 },
-                  day: {
-                    avgtemp_c: 15,
-                    maxwind_kph: 10.8,
-                    avghumidity: 55,
-                    avgvis_km: 10,
-                    uv: 3,
-                    daily_chance_of_rain: "20",
-                    condition: { code: 1000 },
-                  },
+                  hour: [
+                    {
+                      time_epoch: Date.parse("2026-02-08T15:00:00Z") / 1000,
+                      temp_c: 15,
+                      wind_kph: 10.8,
+                      humidity: 55,
+                      vis_km: 10,
+                      uv: 3,
+                      chance_of_rain: "20",
+                      condition: { code: 1000 },
+                      air_quality: { "us-epa-index": 1 },
+                    },
+                  ],
                 },
               ],
             },
@@ -122,14 +125,17 @@ describe("coordinate-dependent upstream error handling", () => {
               forecastday: [
                 {
                   date: "2026-02-09",
-                  day: {
-                    avgtemp_c: 15,
-                    maxwind_kph: 10.8,
-                    avghumidity: 55,
-                    uv: 3,
-                    daily_chance_of_rain: "20",
-                    condition: { code: 1000 },
-                  },
+                  hour: [
+                    {
+                      time_epoch: Date.parse("2026-02-08T15:00:00Z") / 1000,
+                      temp_c: 15,
+                      wind_kph: 10.8,
+                      humidity: 55,
+                      chance_of_rain: "20",
+                      uv: 3,
+                      condition: { code: 1000 },
+                    },
+                  ],
                 },
               ],
             },

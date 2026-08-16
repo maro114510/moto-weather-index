@@ -86,14 +86,19 @@ describe("WeatherApiWeatherRepository coordinate-dependent upstream errors", () 
               forecastday: [
                 {
                   date: "2026-02-09",
-                  day: {
-                    avgtemp_c: 10.5,
-                    maxwind_kph: 18,
-                    avghumidity: 50,
-                    uv: 2,
-                    daily_chance_of_rain: "5",
-                    condition: { code: 1000 },
-                  },
+                  hour: [
+                    {
+                      time_epoch: Date.parse("2026-02-09T00:00:00Z") / 1000,
+                      temp_c: 10.5,
+                      wind_kph: 18,
+                      humidity: 50,
+                      vis_km: 10,
+                      uv: 2,
+                      chance_of_rain: "5",
+                      condition: { code: 1000 },
+                      air_quality: { "us-epa-index": 1 },
+                    },
+                  ],
                 },
               ],
             },

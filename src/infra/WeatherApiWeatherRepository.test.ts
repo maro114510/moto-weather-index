@@ -17,16 +17,19 @@ function buildForecastResponse(
       forecastday: [
         {
           date: targetDate,
-          air_quality: { "us-epa-index": epaIndex },
-          day: {
-            avgtemp_c: 20,
-            maxwind_kph: 10,
-            avghumidity: 60,
-            avgvis_km: 10,
-            uv: 3,
-            daily_chance_of_rain: 30,
-            condition: { code: conditionCode },
-          },
+          hour: [
+            {
+              time_epoch: Date.parse(`${targetDate}T03:00:00Z`) / 1000,
+              temp_c: 20,
+              wind_kph: 10,
+              humidity: 60,
+              vis_km: 10,
+              uv: 3,
+              chance_of_rain: 30,
+              air_quality: { "us-epa-index": epaIndex },
+              condition: { code: conditionCode },
+            },
+          ],
         },
       ],
     },
@@ -154,6 +157,65 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
     await expect(repo.getWeather(35.68, 139.69, DATETIME)).rejects.toThrow(
       "Invalid WeatherAPI response: us-epa-index",
     );
+  });
+});
+
+describe("WeatherApiWeatherRepository hourly weather selection", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("reads AQI from the selected hourly record", async () => {
+    const targetDate = getJstDateString();
+    mockFetch({
+      forecast: {
+        forecastday: [
+          {
+            date: targetDate,
+            hour: [
+              {
+                time_epoch: Date.parse(`${targetDate}T01:00:00Z`) / 1000,
+                temp_c: 12,
+                wind_kph: 18,
+                humidity: 55,
+                vis_km: 12,
+                chance_of_rain: 20,
+                uv: 3,
+                condition: { code: 1000 },
+                air_quality: { "us-epa-index": 1 },
+              },
+              {
+                time_epoch: Date.parse(`${targetDate}T02:00:00Z`) / 1000,
+                temp_c: 23,
+                wind_kph: 18,
+                humidity: 55,
+                vis_km: 12,
+                chance_of_rain: 20,
+                uv: 3,
+                condition: { code: 1000 },
+                air_quality: { "us-epa-index": 2 },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    const weather = await repository.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T10:30:00+09:00`,
+    );
+
+    expect(weather.temperature).toBe(23);
+    expect(weather.airQuality).toBe("medium");
+    expect(weather.datetime).toBe(`${targetDate}T11:00:00+09:00`);
   });
 });
 
