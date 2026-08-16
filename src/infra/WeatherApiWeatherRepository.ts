@@ -135,6 +135,111 @@ function validateWeatherApiWeather(
   );
 }
 
+type WeatherApiHourlyRecord = {
+  time_epoch?: unknown;
+  temp_c?: unknown;
+  wind_kph?: unknown;
+  humidity?: unknown;
+  vis_km?: unknown;
+  chance_of_rain?: unknown;
+  uv?: unknown;
+  condition?: { code?: unknown };
+  air_quality?: { "us-epa-index"?: unknown };
+};
+
+function parseRequestedDatetime(datetime: string): Date {
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(datetime)
+    ? `${datetime}T00:00:00+09:00`
+    : /(?:Z|[+-]\d{2}:\d{2})$/i.test(datetime)
+      ? datetime
+      : `${datetime}+09:00`;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new HttpError(
+      HTTP_STATUS.BAD_REQUEST,
+      "datetime must be a valid ISO 8601 datetime",
+    );
+  }
+
+  return date;
+}
+
+function formatJstDatetime(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_CONFIG.DEFAULT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value;
+
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}:${value("second")}+09:00`;
+}
+
+function selectNearestHourlyRecord(
+  hours: unknown,
+  requestedAt: Date,
+  context: { location: { lat: number; lon: number }; targetDate: string },
+): WeatherApiHourlyRecord {
+  if (!Array.isArray(hours) || hours.length === 0) {
+    throw new HttpError(
+      HTTP_STATUS.NOT_FOUND,
+      "Weather data is unavailable for the specified coordinates/date",
+      {
+        code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
+        details: { ...context, missing: "forecast.forecastday[].hour" },
+      },
+    );
+  }
+
+  let selected: WeatherApiHourlyRecord | undefined;
+  let selectedEpochMs = Number.NEGATIVE_INFINITY;
+  let selectedDistanceMs = Number.POSITIVE_INFINITY;
+
+  for (const candidate of hours as WeatherApiHourlyRecord[]) {
+    if (
+      typeof candidate.time_epoch !== "number" ||
+      !Number.isFinite(candidate.time_epoch)
+    ) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_GATEWAY,
+        "Invalid WeatherAPI response: time_epoch",
+        {
+          code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+          details: { ...context, field: "time_epoch" },
+        },
+      );
+    }
+
+    const epochMs = candidate.time_epoch * 1000;
+    const distanceMs = Math.abs(epochMs - requestedAt.getTime());
+    if (
+      distanceMs < selectedDistanceMs ||
+      (distanceMs === selectedDistanceMs && epochMs > selectedEpochMs)
+    ) {
+      selected = candidate;
+      selectedEpochMs = epochMs;
+      selectedDistanceMs = distanceMs;
+    }
+  }
+
+  if (!selected) {
+    throw new HttpError(
+      HTTP_STATUS.NOT_FOUND,
+      "Weather data is unavailable for the specified coordinates/date",
+      { code: ERROR_CODES.WEATHER_DATA_NOT_FOUND, details: context },
+    );
+  }
+
+  return selected;
+}
+
 /**
  * Represents an HTTP error from a fetch response (non-2xx status).
  * Used internally to carry status/body through retry and error-handling logic.
@@ -270,8 +375,8 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
   ): Promise<Weather> {
     const key = this.getApiKey();
 
-    // Extract date from datetime (YYYY-MM-DD format)
-    const targetDate = datetime.split("T")[0];
+    const requestedAt = parseRequestedDatetime(datetime);
+    const targetDate = getJstDateString(requestedAt);
     const today = getJstDateString();
 
     // Determine which API endpoint to use based on date
@@ -369,13 +474,11 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         }
       }
 
-      const day = forecastDay?.day;
-
-      if (!day) {
+      if (!forecastDay) {
         const noDataContext = {
           operation: "api_response_validation",
-          failurePoint: "day_data_not_found",
-          missing: "forecast.forecastday[].day",
+          failurePoint: "forecast_day_not_found",
+          missing: "forecast.forecastday[]",
           endpoint: isHistorical ? "history" : "forecast",
           location: { lat, lon },
           targetDate,
@@ -395,59 +498,34 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         );
       }
 
-      // Validate required numeric fields; do not silently fallback
-      const numericFields: Array<[string, unknown]> = [
-        ["avgtemp_c", day.avgtemp_c],
-        ["maxwind_kph", day.maxwind_kph],
-        ["avghumidity", day.avghumidity],
-        ["uv", day.uv],
-      ];
-      for (const [name, value] of numericFields) {
-        if (typeof value !== "number" || Number.isNaN(value)) {
-          logger.error("Invalid WeatherAPI response value", {
-            operation: "api_response_validation",
-            failurePoint: "numeric_field_validation",
-            field: name,
-            valueType: typeof value,
-            location: { lat, lon },
-            targetDate,
-          });
-          throw new HttpError(
-            HTTP_STATUS.BAD_GATEWAY,
-            `Invalid WeatherAPI response: ${name}`,
-            {
-              code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
-              details: { field: name, location: { lat, lon }, targetDate },
-            },
-          );
-        }
-      }
-
-      // Handle daily_chance_of_rain separately as it can be a string
+      const hour = selectNearestHourlyRecord(forecastDay.hour, requestedAt, {
+        location: { lat, lon },
+        targetDate,
+      });
       const precipitationProbability = parseAndClampPrecipitationProbability(
-        day.daily_chance_of_rain,
-        "daily_chance_of_rain",
+        hour.chance_of_rain,
+        "chance_of_rain",
       );
 
-      const conditionCode: number | undefined = day?.condition?.code;
+      const conditionCode = hour.condition?.code;
       const condition: WeatherCondition = conditionCode
-        ? mapWeatherApiCodeToCondition(conditionCode)
+        ? mapWeatherApiCodeToCondition(Number(conditionCode))
         : "unknown";
 
       const weather = {
-        // Preserve requested datetime as existing behavior does
-        datetime,
+        datetime: formatJstDatetime(new Date(Number(hour.time_epoch) * 1000)),
         condition,
-        temperature: day.avgtemp_c,
+        temperature: hour.temp_c,
         // WeatherAPI kph -> m/s
-        windSpeed: day.maxwind_kph / 3.6,
-        humidity: day.avghumidity,
-        visibility: day.avgvis_km,
+        windSpeed:
+          typeof hour.wind_kph === "number"
+            ? hour.wind_kph / 3.6
+            : hour.wind_kph,
+        humidity: hour.humidity,
+        visibility: hour.vis_km,
         precipitationProbability: precipitationProbability,
-        uvIndex: day.uv,
-        airQuality: mapWeatherApiAirQuality(
-          forecastDay?.air_quality?.["us-epa-index"],
-        ),
+        uvIndex: hour.uv,
+        airQuality: mapWeatherApiAirQuality(hour.air_quality?.["us-epa-index"]),
       };
 
       return validateWeatherApiWeather(weather, { lat, lon }, targetDate);

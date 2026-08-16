@@ -40,7 +40,7 @@ export async function getWeather(c: Context<AppEnv>) {
     ...requestContext,
     operation: "weather_success",
     location: { lat, lon },
-    datetime,
+    datetime: weather.datetime,
     weather: {
       condition: weather.condition,
       temperature: weather.temperature,
