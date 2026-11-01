@@ -51,4 +51,7 @@ bun.lock
 repomix-output.xml
 .serena
 
+### Worktrees ###
+/.wt/
+
 # End Of Ignore
