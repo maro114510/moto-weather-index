@@ -56,4 +56,23 @@ describe("sanitizeLogData", () => {
     expect(output.users[1].password).toBe("***");
     expect(output.users[0].name).toBe("alice");
   });
+
+  test("redacts sensitive assignments that are not query parameters", () => {
+    const output = sanitizeLogData(
+      "request failed token=abc123 secret: s3cr3t normal=visible",
+    );
+
+    expect(output).toContain("token=***");
+    expect(output).toContain("secret: ***");
+    expect(output).toContain("normal=visible");
+    expect(output).not.toContain("abc123");
+    expect(output).not.toContain("s3cr3t");
+  });
+
+  test("redacts bearer tokens", () => {
+    const output = sanitizeLogData("Authorization: Bearer abc.def.ghi");
+
+    expect(output).not.toContain("abc.def.ghi");
+    expect(output).toContain("Bearer ***");
+  });
 });
