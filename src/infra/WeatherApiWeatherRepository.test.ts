@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { APP_CONFIG } from "../constants/appConfig";
+import { HTTP_STATUS } from "../constants/httpStatus";
+import { HttpError } from "../domain/HttpError";
 import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 
@@ -217,6 +219,101 @@ describe("WeatherApiWeatherRepository hourly weather selection", () => {
     expect(weather.airQuality).toBe("medium");
     expect(weather.datetime).toBe(`${targetDate}T11:00:00+09:00`);
   });
+
+  test("selects a different hourly record for each instant on the same day", async () => {
+    const targetDate = getJstDateString();
+    mockFetch({
+      forecast: {
+        forecastday: [
+          {
+            date: targetDate,
+            hour: [
+              {
+                time_epoch: Date.parse(`${targetDate}T10:00:00+09:00`) / 1000,
+                temp_c: 12,
+                wind_kph: 18,
+                humidity: 55,
+                vis_km: 12,
+                chance_of_rain: 20,
+                uv: 3,
+                condition: { code: 1000 },
+                air_quality: { "us-epa-index": 1 },
+              },
+              {
+                time_epoch: Date.parse(`${targetDate}T14:00:00+09:00`) / 1000,
+                temp_c: 24,
+                wind_kph: 18,
+                humidity: 55,
+                vis_km: 12,
+                chance_of_rain: 20,
+                uv: 3,
+                condition: { code: 1000 },
+                air_quality: { "us-epa-index": 1 },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    const morning = await repository.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T10:00:00+09:00`,
+    );
+    const afternoon = await repository.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T14:00:00+09:00`,
+    );
+
+    expect(morning.temperature).toBe(12);
+    expect(morning.datetime).toBe(`${targetDate}T10:00:00+09:00`);
+    expect(afternoon.temperature).toBe(24);
+    expect(afternoon.datetime).toBe(`${targetDate}T14:00:00+09:00`);
+  });
+
+  test("resolves equivalent Z and offset timestamps to the same instant", async () => {
+    const targetDate = getJstDateString();
+    mockFetch({
+      forecast: {
+        forecastday: [
+          {
+            date: targetDate,
+            hour: [
+              {
+                time_epoch: Date.parse(`${targetDate}T12:00:00+09:00`) / 1000,
+                temp_c: 18,
+                wind_kph: 18,
+                humidity: 55,
+                vis_km: 12,
+                chance_of_rain: 20,
+                uv: 3,
+                condition: { code: 1000 },
+                air_quality: { "us-epa-index": 1 },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    const zulu = await repository.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T03:00:00Z`,
+    );
+    const offset = await repository.getWeather(
+      35.68,
+      139.69,
+      `${targetDate}T12:00:00+09:00`,
+    );
+
+    expect(offset).toEqual(zulu);
+    expect(offset.datetime).toBe(`${targetDate}T12:00:00+09:00`);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -256,20 +353,42 @@ describe("WeatherApiWeatherRepository forecast day-range boundary", () => {
     expect(new URL(calls[0]).searchParams.get("aqi")).toBe("yes");
   });
 
-  test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS)", async () => {
+  test("rejects a forecast date one day beyond the boundary (today + MAX_FORECAST_DAYS) with a client-facing error", async () => {
     const targetDate = addDaysToDateString(
       getJstDateString(),
       APP_CONFIG.MAX_FORECAST_DAYS,
     );
-    mockFetch(buildForecastResponse(1000, targetDate));
+    const calls = mockFetchCapturingUrl(
+      buildForecastResponse(1000, targetDate),
+    );
 
     const repo = new WeatherApiWeatherRepository("dummy-key");
 
-    await expect(
-      repo.getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`),
-    ).rejects.toThrow(
-      `beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
+    const error = await repo
+      .getWeather(35.68, 139.69, `${targetDate}T03:00:00Z`)
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(error.message).toContain("outside the supported");
+    expect(calls).toHaveLength(0);
+  });
+
+  test("rejects a datetime before the provider's history range with a client-facing error", async () => {
+    const calls = mockFetchCapturingUrl(
+      buildForecastResponse(1000, "2009-12-31"),
     );
+
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    const error = await repo
+      .getWeather(35.68, 139.69, "2009-12-31T00:00:00Z")
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(error.message).toContain("outside the supported");
+    expect(calls).toHaveLength(0);
   });
 });
 
