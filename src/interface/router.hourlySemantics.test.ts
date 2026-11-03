@@ -87,4 +87,17 @@ describe("hourly datetime semantics across endpoints", () => {
     expect(touring.factors.weather).toBe(30);
     expect(touring.factors.temperature).toBe(15);
   });
+
+  test("weather endpoint rejects a datetime outside the provider range without an upstream call", async () => {
+    const res = await app.request(
+      "http://localhost/api/v1/weather?lat=35.6762&lon=139.6503&datetime=2030-01-01T00:00:00Z",
+      {},
+      testEnv,
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(body.error).toContain("outside the supported");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });
