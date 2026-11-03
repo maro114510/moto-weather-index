@@ -4,7 +4,7 @@ import { getJstDateString } from "../utils/dateUtils";
 
 const mockFetch = mock();
 
-globalThis.fetch = mockFetch as typeof globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
 const { app } = await import("./router");
 
@@ -76,8 +76,14 @@ describe("hourly datetime semantics across endpoints", () => {
       {},
       testEnv,
     );
-    const weather = await weatherRes.json();
-    const touring = await touringRes.json();
+    const weather = (await weatherRes.json()) as {
+      datetime: string;
+      temperature: number;
+    };
+    const touring = (await touringRes.json()) as {
+      datetime: string;
+      factors: Record<string, number>;
+    };
 
     expect(weatherRes.status).toBe(HTTP_STATUS.OK);
     expect(touringRes.status).toBe(HTTP_STATUS.OK);
@@ -94,7 +100,7 @@ describe("hourly datetime semantics across endpoints", () => {
       {},
       testEnv,
     );
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
 
     expect(res.status).toBe(HTTP_STATUS.BAD_REQUEST);
     expect(body.error).toContain("outside the supported");
