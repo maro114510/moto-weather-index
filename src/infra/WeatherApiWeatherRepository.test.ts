@@ -158,6 +158,41 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
       "Invalid WeatherAPI response: us-epa-index",
     );
   });
+
+  test("rejects an out-of-range precipitation probability from the upstream provider", async () => {
+    mockFetch({
+      forecast: {
+        forecastday: [
+          {
+            date: TARGET_DATE,
+            hour: [
+              {
+                ...buildForecastResponse(1000, TARGET_DATE).forecast.forecastday[0]
+                  .hour[0],
+                chance_of_rain: 101,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(repo.getWeather(35.68, 139.69, DATETIME)).rejects.toThrow(
+      "Invalid WeatherAPI response: precipitationProbability",
+    );
+  });
+
+  test("rejects a missing required condition code from the upstream provider", async () => {
+    const response = buildForecastResponse(1000, TARGET_DATE);
+    delete response.forecast.forecastday[0].hour[0].condition;
+    mockFetch(response);
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(repo.getWeather(35.68, 139.69, DATETIME)).rejects.toThrow(
+      "Invalid WeatherAPI response: condition",
+    );
+  });
 });
 
 describe("WeatherApiWeatherRepository hourly weather selection", () => {
