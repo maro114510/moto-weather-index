@@ -7,6 +7,18 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { AppEnv } from "../types/env";
 import { logger } from "../utils/logger";
+import { sanitizeLogData } from "../utils/logSanitizer";
+
+function sanitizeMessage(message: string): string {
+  return String(sanitizeLogData(message));
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
 
 // Global error handler — single source of truth for error → response conversion.
 export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
@@ -30,7 +42,9 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
     return c.json(
       {
         error: "Invalid parameters",
-        details: error.issues.map((e) => `${e.path.join(".")}: ${e.message}`),
+        details: error.issues.map((e) =>
+          sanitizeMessage(`${e.path.join(".")}: ${e.message}`),
+        ),
         requestId: c.get("requestId"),
       },
       HTTP_STATUS.BAD_REQUEST,
@@ -39,11 +53,53 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
 
   // Hono built-in HTTPException (thrown by bearerAuth, jwt, etc.)
   if (error instanceof HTTPException) {
-    return error.getResponse();
+    const statusCode = error.status as ContentfulStatusCode;
+    const errorMessage = sanitizeMessage(error.message);
+
+    if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
+      logger.error(
+        "HTTP exception",
+        {
+          ...requestContext,
+          operation: "http_exception",
+          statusCode,
+          errorMessage,
+        },
+        error,
+      );
+
+      return c.json(
+        {
+          error: "Internal server error",
+          requestId: c.get("requestId"),
+        },
+        statusCode,
+      );
+    }
+
+    logger.warn(
+      "HTTP exception",
+      {
+        ...requestContext,
+        operation: "http_exception",
+        statusCode,
+        errorMessage,
+      },
+      error,
+    );
+
+    return c.json(
+      {
+        error: errorMessage,
+        requestId: c.get("requestId"),
+      },
+      statusCode,
+    );
   }
 
   if (error instanceof HttpError) {
     const statusCode = error.status as ContentfulStatusCode;
+    const errorMessage = sanitizeMessage(error.message);
 
     if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
       logger.error(
@@ -53,7 +109,7 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
           operation: "server_error",
           statusCode,
           errorCode: error.code,
-          errorMessage: error.message,
+          errorMessage,
         },
         error,
       );
@@ -65,7 +121,7 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
           operation: "client_error",
           statusCode,
           errorCode: error.code,
-          errorMessage: error.message,
+          errorMessage,
         },
         error,
       );
@@ -73,13 +129,33 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
 
     return c.json(
       {
-        error: error.message,
+        error: errorMessage,
         ...(error.code === ERROR_CODES.WEATHER_DATA_INCOMPLETE
           ? { missingFactors: error.details?.missingFactors }
           : {}),
         requestId: c.get("requestId"),
       },
       statusCode,
+    );
+  }
+
+  if (isTimeoutError(error)) {
+    logger.error(
+      "Request timed out",
+      {
+        ...requestContext,
+        operation: "timeout_error",
+        errorType: error.name,
+      },
+      error,
+    );
+
+    return c.json(
+      {
+        error: "Gateway timeout",
+        requestId: c.get("requestId"),
+      },
+      HTTP_STATUS.GATEWAY_TIMEOUT,
     );
   }
 
@@ -109,7 +185,9 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
       ...requestContext,
       operation: "internal_error",
       errorType: error?.constructor?.name || "Unknown",
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: sanitizeMessage(
+        error instanceof Error ? error.message : String(error),
+      ),
     },
     error instanceof Error ? error : new Error(String(error)),
   );

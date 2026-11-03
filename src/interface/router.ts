@@ -23,7 +23,15 @@ import {
   weatherRoute,
 } from "./routes/openapi";
 
-export const app = new OpenAPIHono<AppEnv>();
+export const app = new OpenAPIHono<AppEnv>({
+  // Route validation failures must reach app.onError instead of the default
+  // ZodError response, so they share the structured JSON and request ID path.
+  defaultHook: (result) => {
+    if (!result.success) {
+      throw result.error;
+    }
+  },
+});
 
 // Apply global middleware
 app.use("*", corsMiddleware);
