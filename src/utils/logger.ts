@@ -80,7 +80,7 @@ class Logger {
       logEntry.error = {
         name: error.name,
         message: String(sanitizeLogData(error.message)),
-        stack: error.stack,
+        stack: error.stack ? String(sanitizeLogData(error.stack)) : undefined,
         cause: sanitizeLogData(error.cause),
       };
     }
