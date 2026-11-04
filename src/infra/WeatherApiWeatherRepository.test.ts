@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { APP_CONFIG } from "../constants/appConfig";
+import { ERROR_CODES } from "../constants/errorCodes";
+import { HTTP_STATUS } from "../constants/httpStatus";
 import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 import { WeatherApiWeatherRepository } from "./WeatherApiWeatherRepository";
 
@@ -158,6 +160,44 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
       "Invalid WeatherAPI response: us-epa-index",
     );
   });
+
+  test("rejects an out-of-range precipitation probability from the upstream provider", async () => {
+    mockFetch({
+      forecast: {
+        forecastday: [
+          {
+            date: TARGET_DATE,
+            hour: [
+              {
+                ...buildForecastResponse(1000, TARGET_DATE).forecast
+                  .forecastday[0].hour[0],
+                chance_of_rain: 101,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(
+      repo.getWeather(35.68, 139.69, DATETIME),
+    ).rejects.toMatchObject({
+      status: HTTP_STATUS.BAD_GATEWAY,
+      code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+    });
+  });
+
+  test("rejects a missing required condition code from the upstream provider", async () => {
+    const response = buildForecastResponse(1000, TARGET_DATE);
+    delete response.forecast.forecastday[0].hour[0].condition;
+    mockFetch(response);
+    const repo = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(repo.getWeather(35.68, 139.69, DATETIME)).rejects.toThrow(
+      "Invalid WeatherAPI response: condition",
+    );
+  });
 });
 
 describe("WeatherApiWeatherRepository hourly weather selection", () => {
@@ -309,6 +349,21 @@ describe("WeatherApiWeatherRepository bounded acquisition", () => {
     expect(result.map((weather) => weather.datetime)).toEqual(
       targetDates.map(getExpectedDailyDatetime),
     );
+  });
+
+  test("rejects invalid daily weather before a batch result is returned", async () => {
+    const targetDate = getJstDateString();
+    const response = buildForecastRangeResponse([targetDate]);
+    response.forecast.forecastday[0].day.avgtemp_c = 61;
+    mockFetch(response);
+    const repository = new WeatherApiWeatherRepository("dummy-key");
+
+    await expect(
+      repository.getWeatherBatch(35.68, 139.69, targetDate, targetDate),
+    ).rejects.toMatchObject({
+      status: HTTP_STATUS.BAD_GATEWAY,
+      code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+    });
   });
 
   test("rejects a batch range that starts before today", async () => {
