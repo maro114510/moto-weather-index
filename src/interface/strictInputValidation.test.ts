@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { HTTP_STATUS } from "../constants/httpStatus";
 
 const mockFetch = mock();
-globalThis.fetch = mockFetch as typeof globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
 const { app } = await import("./router");
 
@@ -30,7 +30,11 @@ describe("strict API input validation", () => {
   });
 
   test("returns 400 for invalid or oversized datetime values", async () => {
-    for (const datetime of ["not-a-date", "2024-02-30T12:00:00Z", "x".repeat(65)]) {
+    for (const datetime of [
+      "not-a-date",
+      "2024-02-30T12:00:00Z",
+      "x".repeat(65),
+    ]) {
       const response = await request(
         `/api/v1/touring-index?lat=35.6762&lon=139.6503&datetime=${datetime}`,
       );
