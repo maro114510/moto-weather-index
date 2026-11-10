@@ -60,14 +60,10 @@ export const coordinates = {
   lat: latitude.openapi({
     example: "35.6762",
     description: "Latitude (-90 to 90)",
-    minimum: -90,
-    maximum: 90,
   }),
   lon: longitude.openapi({
     example: "139.6503",
     description: "Longitude (-180 to 180)",
-    minimum: -180,
-    maximum: 180,
   }),
 };
 

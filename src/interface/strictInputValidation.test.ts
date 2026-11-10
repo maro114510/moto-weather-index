@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { HTTP_STATUS } from "../constants/httpStatus";
+import { getTouringIndexHistorySchema } from "../dao/touringIndexSchemas";
+import { getWeatherSchema } from "../dao/weatherSchemas";
 
 const mockFetch = mock();
 globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
@@ -19,6 +21,7 @@ describe("strict API input validation", () => {
   test("returns 400 for empty, infinite, and out-of-range coordinates", async () => {
     for (const coordinates of [
       "lat=&lon=139.6503",
+      "lat=not-a-number&lon=139.6503",
       "lat=Infinity&lon=139.6503",
       "lat=91&lon=139.6503",
       "lat=35.6762&lon=-181",
@@ -51,5 +54,62 @@ describe("strict API input validation", () => {
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
     }
+  });
+
+  test("accepts documented coordinate and prefecture boundaries", () => {
+    expect(getWeatherSchema.parse({ lat: "-90", lon: "180" })).toMatchObject({
+      lat: -90,
+      lon: 180,
+    });
+    expect(
+      getTouringIndexHistorySchema.parse({
+        lat: "0",
+        lon: "0",
+        prefectureId: "1",
+      }).prefectureId,
+    ).toBe(1);
+    expect(
+      getTouringIndexHistorySchema.parse({
+        lat: "0",
+        lon: "0",
+        prefectureId: "47",
+      }).prefectureId,
+    ).toBe(47);
+  });
+
+  test("publishes the runtime input limits in OpenAPI", async () => {
+    const response = await request("/specification");
+    const specification = (await response.json()) as {
+      paths: Record<
+        string,
+        {
+          get: {
+            parameters: Array<{
+              name: string;
+              schema: Record<string, unknown>;
+            }>;
+          };
+        }
+      >;
+    };
+    const parameters =
+      specification.paths["/api/v1/touring-index/history"].get.parameters;
+    const weatherParameters =
+      specification.paths["/api/v1/weather"].get.parameters;
+    const parameter = (name: string) =>
+      parameters.find((item) => item.name === name)?.schema;
+    const weatherParameter = (name: string) =>
+      weatherParameters.find((item) => item.name === name)?.schema;
+
+    expect(parameter("lat")).toMatchObject({ minLength: 1, maxLength: 32 });
+    expect(weatherParameter("datetime")).toMatchObject({
+      minLength: 1,
+      maxLength: 64,
+    });
+    expect(parameter("prefectureId")).toMatchObject({
+      minLength: 1,
+      maxLength: 2,
+      pattern: "^(?:[1-9]|[1-3]\\d|4[0-7])$",
+    });
   });
 });
