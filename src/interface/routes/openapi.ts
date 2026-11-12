@@ -1,4 +1,9 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
+import {
+  getTouringIndexHistorySchema,
+  getTouringIndexSchema,
+} from "../../dao/touringIndexSchemas";
+import { getWeatherSchema } from "../../dao/weatherSchemas";
 import {
   ErrorResponseSchema,
   HealthResponseSchema,
@@ -66,20 +71,7 @@ export const weatherRoute = createRoute({
   description: "Retrieve current weather data for specified coordinates",
   tags: ["Weather"],
   request: {
-    query: z.object({
-      lat: z.string().openapi({
-        example: "35.6762",
-        description: "Latitude (-90 to 90)",
-      }),
-      lon: z.string().openapi({
-        example: "139.6503",
-        description: "Longitude (-180 to 180)",
-      }),
-      datetime: z.string().optional().openapi({
-        example: "2024-01-01T12:00:00Z",
-        description: "ISO 8601 datetime (optional, defaults to current time)",
-      }),
-    }),
+    query: getWeatherSchema,
   },
   responses: {
     200: {
@@ -118,20 +110,7 @@ export const touringIndexRoute = createRoute({
     "Calculate touring suitability index based on weather conditions",
   tags: ["Touring Index"],
   request: {
-    query: z.object({
-      lat: z.string().openapi({
-        example: "35.6762",
-        description: "Latitude (-90 to 90)",
-      }),
-      lon: z.string().openapi({
-        example: "139.6503",
-        description: "Longitude (-180 to 180)",
-      }),
-      datetime: z.string().optional().openapi({
-        example: "2024-01-01T12:00:00Z",
-        description: "ISO 8601 datetime (optional, defaults to current time)",
-      }),
-    }),
+    query: getTouringIndexSchema,
   },
   responses: {
     200: {
@@ -178,31 +157,7 @@ export const touringIndexHistoryRoute = createRoute({
     "Retrieve historical touring index data for a specific location and date range",
   tags: ["Touring Index"],
   request: {
-    query: z.object({
-      lat: z.string().openapi({
-        example: "35.6762",
-        description: "Latitude (-90 to 90)",
-      }),
-      lon: z.string().openapi({
-        example: "139.6503",
-        description: "Longitude (-180 to 180)",
-      }),
-      startDate: z.string().optional().openapi({
-        example: "2024-05-25",
-        description:
-          "Start date in YYYY-MM-DD format (optional, defaults to 7 days ago)",
-      }),
-      endDate: z.string().optional().openapi({
-        example: "2024-06-01",
-        description:
-          "End date in YYYY-MM-DD format (optional, defaults to today)",
-      }),
-      prefectureId: z.string().optional().openapi({
-        example: "13",
-        description:
-          "Prefecture ID (1-47, optional, auto-detected from coordinates if not provided)",
-      }),
-    }),
+    query: getTouringIndexHistorySchema,
   },
   responses: {
     200: {

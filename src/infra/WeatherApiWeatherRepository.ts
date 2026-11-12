@@ -43,10 +43,10 @@ function mapWeatherApiCodeToCondition(code: number): WeatherCondition {
 }
 
 /**
- * Parses precipitation probability from WeatherAPI response and clamps to 0-100 range
+ * Parses precipitation probability from WeatherAPI response and validates its range
  * Handles both string and number types as WeatherAPI sometimes returns strings
  */
-function parseAndClampPrecipitationProbability(
+function parsePrecipitationProbability(
   value: unknown,
   fieldName: string,
 ): number {
@@ -54,8 +54,8 @@ function parseAndClampPrecipitationProbability(
 
   if (typeof value === "number") {
     parsed = value;
-  } else if (typeof value === "string") {
-    parsed = parseFloat(value);
+  } else if (typeof value === "string" && value.trim() !== "") {
+    parsed = Number(value);
   } else {
     logger.error("Invalid WeatherAPI precipitation probability type", {
       operation: "api_response_validation",
@@ -72,7 +72,7 @@ function parseAndClampPrecipitationProbability(
     );
   }
 
-  if (Number.isNaN(parsed)) {
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
     logger.error("Invalid WeatherAPI precipitation probability value", {
       operation: "api_response_validation",
       field: fieldName,
@@ -80,7 +80,7 @@ function parseAndClampPrecipitationProbability(
     });
     throw new HttpError(
       HTTP_STATUS.BAD_GATEWAY,
-      `Invalid WeatherAPI response: ${fieldName} is not a valid number`,
+      `Invalid WeatherAPI response: ${fieldName}`,
       {
         code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
         details: { field: fieldName, value },
@@ -88,8 +88,7 @@ function parseAndClampPrecipitationProbability(
     );
   }
 
-  // Clamp to 0-100 range
-  return Math.max(0, Math.min(100, parsed));
+  return parsed;
 }
 
 function mapWeatherApiAirQuality(value: unknown): AirQualityLevel | undefined {
@@ -512,15 +511,27 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         location: { lat, lon },
         targetDate,
       });
-      const precipitationProbability = parseAndClampPrecipitationProbability(
+      const precipitationProbability = parsePrecipitationProbability(
         hour.chance_of_rain,
         "chance_of_rain",
       );
 
       const conditionCode = hour.condition?.code;
-      const condition: WeatherCondition = conditionCode
-        ? mapWeatherApiCodeToCondition(Number(conditionCode))
-        : "unknown";
+      if (
+        typeof conditionCode !== "number" ||
+        !Number.isFinite(conditionCode)
+      ) {
+        throw new HttpError(
+          HTTP_STATUS.BAD_GATEWAY,
+          "Invalid WeatherAPI response: condition",
+          {
+            code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+            details: { field: "condition", location: { lat, lon }, targetDate },
+          },
+        );
+      }
+      const condition: WeatherCondition =
+        mapWeatherApiCodeToCondition(conditionCode);
 
       const weather = {
         datetime: formatJstDatetime(new Date(Number(hour.time_epoch) * 1000)),
@@ -722,7 +733,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           ["avghumidity", day.avghumidity],
           ["uv", day.uv],
         ]) {
-          if (typeof value !== "number" || Number.isNaN(value)) {
+          if (typeof value !== "number" || !Number.isFinite(value)) {
             throw new HttpError(
               HTTP_STATUS.BAD_GATEWAY,
               `Invalid WeatherAPI response: ${field}`,
@@ -734,18 +745,29 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
           }
         }
 
-        const conditionCode: number | undefined = day.condition?.code;
+        const conditionCode: unknown = day.condition?.code;
+        if (
+          typeof conditionCode !== "number" ||
+          !Number.isFinite(conditionCode)
+        ) {
+          throw new HttpError(
+            HTTP_STATUS.BAD_GATEWAY,
+            "Invalid WeatherAPI response: condition",
+            {
+              code: ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE,
+              details: { field: "condition", location: { lat, lon }, date },
+            },
+          );
+        }
         return validateWeatherApiWeather(
           {
             datetime: `${date}T03:00:00Z`,
-            condition: conditionCode
-              ? mapWeatherApiCodeToCondition(conditionCode)
-              : "unknown",
+            condition: mapWeatherApiCodeToCondition(conditionCode),
             temperature: day.avgtemp_c,
             windSpeed: day.maxwind_kph / 3.6,
             humidity: day.avghumidity,
             visibility: day.avgvis_km,
-            precipitationProbability: parseAndClampPrecipitationProbability(
+            precipitationProbability: parsePrecipitationProbability(
               day.daily_chance_of_rain,
               "daily_chance_of_rain",
             ),
