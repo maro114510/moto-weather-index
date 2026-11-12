@@ -57,7 +57,7 @@ describe("hourly datetime semantics across endpoints", () => {
 
   test("weather and touring-index use the same hourly record for the requested instant", async () => {
     const targetDate = getJstDateString();
-    const requestedAt = `${targetDate}T10:00:00+09:00`;
+    const requestedAt = `${targetDate}T14:00:00+09:00`;
     mockFetch.mockImplementation(() =>
       Promise.resolve(
         new Response(JSON.stringify(buildTwoHourForecastResponse(targetDate)), {
@@ -89,9 +89,9 @@ describe("hourly datetime semantics across endpoints", () => {
     expect(touringRes.status).toBe(HTTP_STATUS.OK);
     expect(weather.datetime).toBe(requestedAt);
     expect(touring.datetime).toBe(weather.datetime);
-    expect(weather.temperature).toBe(16);
+    expect(weather.temperature).toBe(28);
     expect(touring.factors.weather).toBe(30);
-    expect(touring.factors.temperature).toBe(15);
+    expect(touring.factors.temperature).toBe(14);
   });
 
   test("weather endpoint rejects a datetime outside the provider range without an upstream call", async () => {
