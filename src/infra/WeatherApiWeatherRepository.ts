@@ -380,7 +380,6 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
 
     // Determine which API endpoint to use based on date
     const isHistorical = targetDate < today;
-    const isForecast = targetDate >= today;
 
     // WeatherAPI's forecast.json returns "today" (day 1) through day
     // MAX_FORECAST_DAYS, so the furthest valid date is today + (MAX_FORECAST_DAYS - 1)
@@ -388,6 +387,22 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
       today,
       APP_CONFIG.MAX_FORECAST_DAYS - 1,
     );
+    const minHistoryDateStr = APP_CONFIG.MIN_HISTORY_DATE;
+
+    if (targetDate < minHistoryDateStr || targetDate > maxForecastDateStr) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_REQUEST,
+        `datetime is outside the supported weather data range (${minHistoryDateStr} to ${maxForecastDateStr})`,
+        {
+          details: {
+            datetime,
+            targetDate,
+            minDate: minHistoryDateStr,
+            maxDate: maxForecastDateStr,
+          },
+        },
+      );
+    }
 
     let url: string;
     let params: Record<string, string>;
@@ -401,7 +416,7 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         dt: targetDate,
         aqi: "yes",
       };
-    } else if (isForecast && targetDate <= maxForecastDateStr) {
+    } else {
       // Use forecast API for today and future dates (up to MAX_FORECAST_DAYS)
       url = "https://api.weatherapi.com/v1/forecast.json";
 
@@ -437,11 +452,6 @@ export class WeatherApiWeatherRepository implements WeatherRepository {
         aqi: "yes",
         alerts: "no",
       };
-    } else {
-      // Date is too far in the future, fall back to history API
-      throw new Error(
-        `Date ${targetDate} is beyond WeatherAPI forecast range (max ${APP_CONFIG.MAX_FORECAST_DAYS - 1} days ahead)`,
-      );
     }
 
     logger.externalApiCall("WeatherAPI", url, {

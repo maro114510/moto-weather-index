@@ -13,6 +13,10 @@ export const APP_CONFIG = {
   // furthest valid forecast date is today + (MAX_FORECAST_DAYS - 1).
   MAX_FORECAST_DAYS: 14,
 
+  // WeatherAPI's history.json endpoint starts at this date. Earlier requests
+  // are rejected before any upstream call.
+  MIN_HISTORY_DATE: "2010-01-01",
+
   // WeatherAPI request policy. `MAX_ATTEMPTS` includes the initial request.
   WEATHER_API_REQUEST_TIMEOUT_MS: 10_000,
   WEATHER_API_MAX_ATTEMPTS: 3,
