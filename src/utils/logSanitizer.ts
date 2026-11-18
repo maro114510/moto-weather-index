@@ -1,4 +1,8 @@
-import stringify from "safe-stable-stringify";
+import safeStableStringify from "safe-stable-stringify";
+
+const stringify = safeStableStringify.configure({
+  circularValue: "[Circular]",
+});
 
 const REDACTED = "***";
 const SENSITIVE_KEY_PATTERN =
