@@ -42,7 +42,8 @@ jobs:
       - name: Run external WeatherAPI integration tests
         if: ${{ env.WEATHERAPI_KEY != '' }}
         run: bun test src/infra/WeatherApiWeatherRepository.test.ts
-      - name: Report external tests as skipped
+      - name: Fail when the external status cannot be reported
         if: ${{ env.WEATHERAPI_KEY == '' }}
         run: |
-          echo "::notice::Skipped: WEATHERAPI_KEY is not available to this workflow run."
+          echo "::error::WEATHERAPI_KEY is not configured, so the external integration status cannot be reported."
+          exit 1
