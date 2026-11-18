@@ -29,11 +29,12 @@ export type TouringIndexResult = CompleteTouringIndex | IncompleteTouringIndex;
 
 export function calculateTouringIndex(weather: Weather): TouringIndexResult {
   const { airQuality, visibility } = weather;
-  const missingFactors: MissingTouringIndexFactor[] = [];
-  if (visibility === undefined) missingFactors.push("visibility");
-  if (airQuality === undefined) missingFactors.push("airQuality");
 
-  if (missingFactors.length > 0) {
+  // Narrow both optional observations before any score rule runs.
+  if (visibility === undefined || airQuality === undefined) {
+    const missingFactors: MissingTouringIndexFactor[] = [];
+    if (visibility === undefined) missingFactors.push("visibility");
+    if (airQuality === undefined) missingFactors.push("airQuality");
     return { missingFactors };
   }
 

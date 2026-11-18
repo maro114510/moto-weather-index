@@ -6,7 +6,20 @@ import {
   type Weather,
   type WeatherCondition,
 } from "../domain/Weather";
-import { calculateTouringIndex } from "./CalculateTouringIndex";
+import {
+  type CompleteTouringIndex,
+  calculateTouringIndex as calculateTouringIndexResult,
+} from "./CalculateTouringIndex";
+
+function calculateTouringIndex(weather: Weather): CompleteTouringIndex {
+  const result = calculateTouringIndexResult(weather);
+  if ("missingFactors" in result) {
+    throw new Error(
+      `Expected a complete touring index, missing: ${result.missingFactors.join(", ")}`,
+    );
+  }
+  return result;
+}
 
 describe("CalculateTouringIndex", () => {
   describe("Normal Cases - Valid Weather Data", () => {
@@ -306,13 +319,13 @@ describe("CalculateTouringIndex", () => {
 
       test("should return an incomplete result when air quality is unavailable", () => {
         const weather: Weather = { ...baseWeather };
-        const result = calculateTouringIndex(weather);
+        const result = calculateTouringIndexResult(weather);
         expect(result).toEqual({ missingFactors: ["airQuality"] });
       });
 
       test("should return an incomplete result when visibility is unavailable", () => {
         const { visibility: _visibility, ...weather } = baseWeather;
-        const result = calculateTouringIndex(weather);
+        const result = calculateTouringIndexResult(weather);
 
         expect(result).toEqual({
           missingFactors: ["visibility", "airQuality"],

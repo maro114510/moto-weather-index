@@ -15,7 +15,10 @@ describe("Not Found handler", () => {
       {},
       testEnv,
     );
-    const body = await res.json();
+    const body = (await res.json()) as {
+      error: string;
+      requestId: string;
+    };
 
     expect(res.status).toBe(HTTP_STATUS.NOT_FOUND);
     expect(body.error).toBe("Not Found");

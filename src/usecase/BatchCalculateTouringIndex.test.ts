@@ -285,7 +285,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
       mockWeatherRepository.getWeatherBatch = batchWeatherMock;
 
       const targetDates = ["2025-06-01"];
-      const result = await usecase.execute(targetDates, 1);
+      const result = await usecase.execute(targetDates);
 
       expect(result.total_processed).toBe(2);
       expect(result.successful_inserts).toBe(1); // Only Hokkaido succeeded
@@ -351,29 +351,31 @@ describe("BatchCalculateTouringIndexUsecase", () => {
     });
 
     test("does not publish incomplete days but persists complete days", async () => {
-      mockWeatherRepository.getWeatherBatch = mock(async () => [
-        {
-          datetime: "2025-06-01T03:00:00Z",
-          condition: "clear",
-          temperature: 21.5,
-          windSpeed: 2.5,
-          humidity: 50,
-          visibility: 20,
-          precipitationProbability: 0,
-          uvIndex: 3,
-          airQuality: "low",
-        },
-        {
-          datetime: "2025-06-02T03:00:00Z",
-          condition: "clear",
-          temperature: 21.5,
-          windSpeed: 2.5,
-          humidity: 50,
-          visibility: 20,
-          precipitationProbability: 0,
-          uvIndex: 3,
-        },
-      ]);
+      mockWeatherRepository.getWeatherBatch = mock(
+        async (): Promise<Weather[]> => [
+          {
+            datetime: "2025-06-01T03:00:00Z",
+            condition: "clear",
+            temperature: 21.5,
+            windSpeed: 2.5,
+            humidity: 50,
+            visibility: 20,
+            precipitationProbability: 0,
+            uvIndex: 3,
+            airQuality: "low",
+          },
+          {
+            datetime: "2025-06-02T03:00:00Z",
+            condition: "clear",
+            temperature: 21.5,
+            windSpeed: 2.5,
+            humidity: 50,
+            visibility: 20,
+            precipitationProbability: 0,
+            uvIndex: 3,
+          },
+        ],
+      );
 
       const result = await usecase.execute(["2025-06-01", "2025-06-02"]);
 
@@ -411,7 +413,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           if (args.length === 0) {
             super(mockDate);
           } else {
-            super(...args);
+            super(...(args as []));
           }
         }
         static now() {
@@ -449,7 +451,7 @@ describe("BatchCalculateTouringIndexUsecase", () => {
           if (args.length === 0) {
             super(mockDate);
           } else {
-            super(...args);
+            super(...(args as []));
           }
         }
         static now() {

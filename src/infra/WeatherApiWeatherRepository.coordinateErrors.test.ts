@@ -17,7 +17,7 @@ const mockLogger = {
   businessLogic: mock(),
 };
 
-globalThis.fetch = mockFetch as typeof globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
 mock.module("../utils/logger", () => ({
   logger: mockLogger,
@@ -66,14 +66,16 @@ describe("WeatherApiWeatherRepository coordinate-dependent upstream errors", () 
       code: ERROR_CODES.WEATHER_DATA_NOT_FOUND,
     });
 
-    const hasContextLog = mockLogger.error.mock.calls.some(
-      ([message, context]: [string, any]) =>
+    const hasContextLog = mockLogger.error.mock.calls.some((call) => {
+      const [message, context] = call as [string, any];
+      return (
         message === "WeatherAPI request failed" &&
         context?.location?.lat === 0 &&
         context?.location?.lon === -140 &&
         context?.statusCode === 400 &&
-        context?.upstreamCode === 1006,
-    );
+        context?.upstreamCode === 1006
+      );
+    });
     expect(hasContextLog).toBe(true);
   });
 
