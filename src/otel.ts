@@ -113,7 +113,7 @@ if (otelDisabled) {
   const otlpLogsEnabled = logsExporters.includes("otlp");
   const consoleLogsEnabled = logsExporters.includes("console");
 
-  // Initialize Logs pipeline before SDK.start() so console instrumentation sees the provider
+  // Initialize the Logs pipeline before SDK.start() so log emitters resolve the global provider
   let logProvider: LoggerProvider | undefined;
   if (otlpLogsEnabled || consoleLogsEnabled) {
     // Align Logs resource with env-provided attributes (service.name, etc.).
