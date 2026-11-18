@@ -17,10 +17,10 @@ task dev            # ローカル開発サーバー起動
 task lint           # Biome によるリント
 task lint:fix       # リント自動修正
 task test           # テスト実行
-task ci:post-check  # CI 相当のチェック（lint + test）
+task ci:post-check  # CI 相当のチェック（lint + 型チェック + Worker dry-run + test）
 ```
 
-テストの一部は外部 API を利用するため `WEATHERAPI_KEY` が必要。未設定時は CI 同様スキップされる。
+単体テストは外部資格情報なしで実行できる。WeatherAPI 連携テストは `RUN_WEATHER_API_TESTS=true` と `WEATHERAPI_KEY` を設定した場合だけ実行される。
 
 ## Architecture
 

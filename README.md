@@ -356,7 +356,7 @@ KV read/write amplification in the app layer.
 #### Required Environment Variables
 
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
-- `WEATHERAPI_KEY`: API key for WeatherAPI.com (required for weather fetching and tests)
+- `WEATHERAPI_KEY`: API key for WeatherAPI.com (required for weather fetching and the external integration tests)
 
 #### Optional Environment Variables
 
@@ -402,8 +402,17 @@ task wrangler:dev
 ### Testing & Quality Assurance
 
 ```bash
-# Run all tests
-WEATHERAPI_KEY=your_key bun test
+# Run the unit tests, which need no external credentials
+bun test
+
+# Run the external WeatherAPI integration tests
+RUN_WEATHER_API_TESTS=true WEATHERAPI_KEY=your_key bun test src/infra/WeatherApiWeatherRepository.test.ts
+
+# Type check
+bunx tsc --noEmit
+
+# Validate the Worker bundle without deploying
+bunx wrangler deploy --dry-run
 
 # Lint code
 task lint
