@@ -63,3 +63,11 @@ sequenceDiagram
 - An index with incomplete Coverage is never presented as complete.
 - Touring Indices of different Confidence are not presented as directly comparable.
 - Every presented index names its Place, its target Moment or Day, its Factors, its Rating, the weather source, and its Freshness.
+
+## References
+
+- [Serve the product as a single application with no public API](../adr/single-application.md)
+- [Build the interface with Vite and React, and serve it with Hono](../adr/vite-react-spa.md)
+- [Obtain forecasts and air quality from Open-Meteo](../adr/open-meteo.md)
+- [Compute every index on request and keep no history](../adr/no-persistence.md)
+- [Return an index with reduced confidence when a factor is missing](../adr/degraded-index.md)
