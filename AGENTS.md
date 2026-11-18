@@ -13,7 +13,7 @@ This file defines the minimum working rules for coding agents in this repository
 ## Validation
 - Run `task lint` after changes.
 - Run `task test` after changes.
-- If tests require external credentials, set `WEATHERAPI_KEY` before running.
+- Unit tests need no external credentials. Set `WEATHERAPI_KEY` and `RUN_WEATHER_API_TESTS=true` only for the external WeatherAPI integration tests.
 
 ## Safety
 - Never commit or log secrets.

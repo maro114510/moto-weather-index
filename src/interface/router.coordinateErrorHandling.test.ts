@@ -3,7 +3,7 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 
 const mockFetch = mock();
 
-globalThis.fetch = mockFetch as typeof globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
 const { app } = await import("./router");
 
@@ -38,7 +38,7 @@ describe("coordinate-dependent upstream error handling", () => {
       {},
       testEnv,
     );
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
 
     expect(res.status).toBe(HTTP_STATUS.NOT_FOUND);
     expect(body.error).toContain("unavailable");
@@ -64,7 +64,7 @@ describe("coordinate-dependent upstream error handling", () => {
       {},
       testEnv,
     );
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
 
     expect(res.status).toBe(HTTP_STATUS.NOT_FOUND);
     expect(body.error).toContain("unavailable");

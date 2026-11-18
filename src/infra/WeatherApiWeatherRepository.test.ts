@@ -191,7 +191,11 @@ describe("WeatherApiWeatherRepository condition mapping", () => {
 
   test("rejects a missing required condition code from the upstream provider", async () => {
     const response = buildForecastResponse(1000, TARGET_DATE);
-    delete response.forecast.forecastday[0].hour[0].condition;
+    delete (
+      response.forecast.forecastday[0].hour[0] as {
+        condition?: { code: number };
+      }
+    ).condition;
     mockFetch(response);
     const repo = new WeatherApiWeatherRepository("dummy-key");
 
@@ -508,7 +512,7 @@ describe("WeatherApiWeatherRepository bounded acquisition", () => {
         },
       );
     });
-    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
     const originalRandom = Math.random;
     Math.random = () => 0;
 
@@ -530,7 +534,7 @@ describe("WeatherApiWeatherRepository bounded acquisition", () => {
         status: 400,
       });
     });
-    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
     const repository = new WeatherApiWeatherRepository("dummy-key");
 
     await expect(
@@ -547,7 +551,7 @@ describe("WeatherApiWeatherRepository bounded acquisition", () => {
           reject(init.signal?.reason),
         );
       });
-    }) as typeof globalThis.fetch;
+    }) as unknown as typeof globalThis.fetch;
     const repository = new WeatherApiWeatherRepository("dummy-key", {
       requestTimeoutMs: 1,
       maxAttempts: 1,

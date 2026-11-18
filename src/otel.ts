@@ -1,6 +1,9 @@
-import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
-// Logs (OTLP/HTTP)
-import { logs as logsAPI } from "@opentelemetry/api-logs";
+import {
+  DiagConsoleLogger,
+  DiagLogLevel,
+  diag,
+  logs,
+} from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
@@ -110,7 +113,7 @@ if (otelDisabled) {
   const otlpLogsEnabled = logsExporters.includes("otlp");
   const consoleLogsEnabled = logsExporters.includes("console");
 
-  // Initialize Logs pipeline before SDK.start() so console instrumentation sees the provider
+  // Initialize the Logs pipeline before SDK.start() so log emitters resolve the global provider
   let logProvider: LoggerProvider | undefined;
   if (otlpLogsEnabled || consoleLogsEnabled) {
     // Align Logs resource with env-provided attributes (service.name, etc.).
@@ -133,15 +136,18 @@ if (otelDisabled) {
       }),
     );
 
-    logProvider = new LoggerProvider({ resource });
+    const logProcessors: BatchLogRecordProcessor[] = [];
     if (otlpLogsEnabled) {
       const logsUrl =
         process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ||
         `${otlpBase.replace(/\/$/, "")}/v1/logs`;
-      logProvider.addLogRecordProcessor(
-        new BatchLogRecordProcessor(
-          new OTLPLogExporter({ url: logsUrl, headers: commonHeaders }),
-        ),
+      logProcessors.push(
+        new BatchLogRecordProcessor({
+          exporter: new OTLPLogExporter({
+            url: logsUrl,
+            headers: commonHeaders,
+          }),
+        }),
       );
       // eslint-disable-next-line no-console
       console.info("[otel] logs exporter enabled: otlp", {
@@ -151,13 +157,16 @@ if (otelDisabled) {
       });
     }
     if (consoleLogsEnabled) {
-      logProvider.addLogRecordProcessor(
-        new BatchLogRecordProcessor(new ConsoleLogRecordExporter()),
+      logProcessors.push(
+        new BatchLogRecordProcessor({
+          exporter: new ConsoleLogRecordExporter(),
+        }),
       );
       // eslint-disable-next-line no-console
       console.info("[otel] logs exporter enabled: console");
     }
-    logsAPI.setGlobalLoggerProvider(logProvider);
+    logProvider = new LoggerProvider({ resource, processors: logProcessors });
+    logs.setGlobalLoggerProvider(logProvider);
   } else {
     // eslint-disable-next-line no-console
     console.info(
@@ -167,12 +176,7 @@ if (otelDisabled) {
 
   const sdk = new NodeSDK({
     // Exporterは環境変数 (OTEL_TRACES_EXPORTER 等) に委譲（トレース）
-    instrumentations: [
-      getNodeAutoInstrumentations({
-        // Ensure console logs are captured as LogRecords (for OTLP Logs)
-        "@opentelemetry/instrumentation-console": { enabled: true } as any,
-      }),
-    ],
+    instrumentations: [getNodeAutoInstrumentations()],
     ...(prometheusEnabled
       ? {
           metricReader: new PrometheusExporter({

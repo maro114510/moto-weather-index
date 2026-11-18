@@ -12,7 +12,7 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 const mockFetch = mock();
 const originalFetch = globalThis.fetch;
 
-globalThis.fetch = mockFetch as typeof globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
 const { app } = await import("./router");
 
@@ -24,7 +24,7 @@ const testEnv = {
 describe("centralized error handling", () => {
   beforeEach(() => {
     process.env.WEATHERAPI_KEY = "test-key";
-    globalThis.fetch = mockFetch as typeof globalThis.fetch;
+    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
     mockFetch.mockReset();
   });
 

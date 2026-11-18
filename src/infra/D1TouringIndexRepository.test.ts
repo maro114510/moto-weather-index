@@ -27,18 +27,24 @@ function successfulResult(): D1Result {
       size_after: 0,
       rows_read: 0,
       rows_written: 1,
+      last_row_id: 0,
+      changed_db: false,
+      changes: 1,
     },
-    changes: 1,
-    duration: 0,
-    last_row_id: 0,
+    results: [],
   };
 }
 
 describe("D1TouringIndexRepository", () => {
   test("publishes a prefecture range in one idempotent D1 batch", async () => {
-    const bind = mock(() => ({}) as D1PreparedStatement);
-    const prepare = mock(() => ({ bind }) as unknown as D1PreparedStatement);
-    const batch = mock(async () => [successfulResult(), successfulResult()]);
+    const bind = mock((..._args: unknown[]) => ({}) as D1PreparedStatement);
+    const prepare = mock(
+      (_sql: string) => ({ bind }) as unknown as D1PreparedStatement,
+    );
+    const batch = mock(async (_statements: D1PreparedStatement[]) => [
+      successfulResult(),
+      successfulResult(),
+    ]);
     const repository = new D1TouringIndexRepository({
       prepare,
       batch,
