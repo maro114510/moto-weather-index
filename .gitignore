@@ -46,6 +46,9 @@ bun.lockb
 # General
 .DS_Store
 
+### Build ###
+dist/
+
 ### Output ###
 repomix-output.xml
 .serena
