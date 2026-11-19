@@ -24,6 +24,9 @@ jobs:
       - name: Run tests
         run: bun test
 
+      - name: Build the interface and the Worker
+        run: bun run build
+
       - name: Deploy to Cloudflare Workers (with retry)
         uses: nick-invision/retry@v4
         with:

@@ -20,6 +20,8 @@ jobs:
         run: bunx biome check --config-path .biomerc.json .
       - name: Type check
         run: bunx tsc --noEmit
+      - name: Build the interface and the Worker
+        run: bun run build
       - name: Validate Worker bundle
         run: bunx wrangler deploy --dry-run
       - name: Run unit tests
