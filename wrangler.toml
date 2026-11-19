@@ -3,6 +3,11 @@ main = 'src/worker.ts'
 compatibility_date = '2025-05-08'
 compatibility_flags = ["nodejs_compat"]
 
+# The assets directory is a build output, so a deploy from a clean checkout
+# builds the interface first.
+[build]
+command = "bun run build"
+
 # The interface is served as static assets. A request for a client route falls
 # back to the interface entry, while the Worker keeps every path it implements.
 [assets]
