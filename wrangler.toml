@@ -13,20 +13,10 @@ command = "bun run build"
 [assets]
 directory = "./dist/client"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/health", "/health/*", "/specification", "/doc"]
+run_worker_first = ["/api/*"]
 
 [vars]
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARN, ERROR
-# BATCH_START_DATE = "2025-06-15"  # Optional: Custom start date for batch processing (YYYY-MM-DD format)
-                                   # Must be today or later. If not set, uses today as start date.
-
-[triggers]
-crons = ["0 19 * * *"]  # UTC 19:00 = JST 4:00
 
 [observability.logs]
 enabled = true
-
-[[d1_databases]]
-binding = "DB"
-database_name = "moto-weather-db"
-database_id = "4272ce42-0914-4af3-8323-c3569b5595a1"

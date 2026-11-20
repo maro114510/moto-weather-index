@@ -98,7 +98,7 @@ function installEdgeCache() {
 }
 
 const { app } = await import("./router");
-const testEnv = { WEATHERAPI_KEY: "test-key", DB: {} as D1Database };
+const testEnv = {};
 
 async function get(path: string) {
   return app.request(`http://localhost${path}`, {}, testEnv);
