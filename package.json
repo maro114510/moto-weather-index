@@ -6,7 +6,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json",
     "lint": "biome check --config-path .biomerc.json .",
-    "test": "bun test"
+    "test": "bun test",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",

@@ -57,3 +57,7 @@ repomix-output.xml
 /.wt/
 
 # End Of Ignore
+
+# Playwright
+test-results/
+playwright-report/
