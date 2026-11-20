@@ -9,6 +9,7 @@ import {
   type Target,
 } from "../domain/TouringIndex";
 import type { AirQualityLevel, WeatherCondition } from "../domain/Weather";
+import { addDaysToDateString, getJstDateString } from "../utils/dateUtils";
 
 export const OPEN_METEO_SOURCE = "Open-Meteo";
 
@@ -72,6 +73,19 @@ const HourlyForecastSchema = z.object({
     visibility: NullableNumbers,
     precipitation_probability: NullableNumbers,
     uv_index: NullableNumbers,
+  }),
+});
+
+const DailyForecastSchema = z.object({
+  hourly: z.object({ time: z.array(z.string()), visibility: NullableNumbers }),
+  daily: z.object({
+    time: z.array(z.string()),
+    weather_code: NullableNumbers,
+    temperature_2m_mean: NullableNumbers,
+    wind_speed_10m_max: NullableNumbers,
+    relative_humidity_2m_mean: NullableNumbers,
+    precipitation_probability_max: NullableNumbers,
+    uv_index_max: NullableNumbers,
   }),
 });
 
@@ -177,10 +191,9 @@ export class OpenMeteoWeatherClient {
    * An unreachable air-quality service or an absent value leaves the factor
    * missing; only a response that contradicts its own shape is an error.
    */
-  private async getUsAqi(
+  private async getHourlyUsAqi(
     params: Record<string, string>,
-    hourKey: string,
-  ): Promise<number | undefined> {
+  ): Promise<{ time: string[]; us_aqi: (number | null)[] } | undefined> {
     let body: unknown;
     try {
       body = await this.getJson(AIR_QUALITY_URL, {
@@ -196,9 +209,7 @@ export class OpenMeteoWeatherClient {
       }
       throw error;
     }
-    const { hourly } = parseResponse(HourlyAirQualitySchema, body);
-    const index = hourly?.time.indexOf(hourKey) ?? -1;
-    return hourly?.us_aqi[index] ?? undefined;
+    return parseResponse(HourlyAirQualitySchema, body).hourly;
   }
 
   async getObservation(
@@ -213,16 +224,19 @@ export class OpenMeteoWeatherClient {
       end_date: moment.date,
     };
     const hourKey = `${moment.date}T${String(moment.hour).padStart(2, "0")}:00`;
-    const [forecastBody, usAqi] = await Promise.all([
+    const [forecastBody, airQualityHourly] = await Promise.all([
       this.getJson(FORECAST_URL, {
         ...common,
         hourly:
           "weather_code,temperature_2m,wind_speed_10m,relative_humidity_2m,visibility,precipitation_probability,uv_index",
         wind_speed_unit: "ms",
       }),
-      this.getUsAqi(common, hourKey),
+      this.getHourlyUsAqi(common),
     ]);
 
+    const usAqi =
+      airQualityHourly?.us_aqi[airQualityHourly.time.indexOf(hourKey)] ??
+      undefined;
     const { hourly } = parseResponse(HourlyForecastSchema, forecastBody);
     const index = hourly.time.indexOf(hourKey);
     if (index === -1) throw invalidResponse("hourly.time", hourKey);
@@ -259,9 +273,86 @@ export class OpenMeteoWeatherClient {
     };
   }
 
+  /** The Horizon from today in Japan Standard Time, one observation per day. */
   async getDailyObservations(
-    _place: Pick<Place, "latitude" | "longitude">,
+    place: Pick<Place, "latitude" | "longitude">,
   ): Promise<DailyWeatherReading> {
-    return { days: [], source: "", fetchedAt: "" };
+    const startDate = getJstDateString(this.now());
+    const dates = Array.from({ length: HORIZON_DAYS }, (_, i) =>
+      addDaysToDateString(startDate, i),
+    );
+    const common = {
+      latitude: String(place.latitude),
+      longitude: String(place.longitude),
+      timezone: "Asia/Tokyo",
+      start_date: dates[0],
+      end_date: dates[HORIZON_DAYS - 1],
+    };
+    const [forecastBody, airQualityHourly] = await Promise.all([
+      this.getJson(FORECAST_URL, {
+        ...common,
+        hourly: "visibility",
+        daily:
+          "weather_code,temperature_2m_mean,wind_speed_10m_max,relative_humidity_2m_mean,precipitation_probability_max,uv_index_max",
+        wind_speed_unit: "ms",
+      }),
+      this.getHourlyUsAqi(common),
+    ]);
+
+    const { hourly, daily } = parseResponse(DailyForecastSchema, forecastBody);
+
+    const days = dates.map((date) => {
+      const i = daily.time.indexOf(date);
+      if (i === -1) throw invalidResponse("daily.time", date);
+
+      const visibilities = hourly.time.flatMap((time, h) =>
+        time.startsWith(date) && hourly.visibility[h] != null
+          ? [(hourly.visibility[h] as number) / 1000]
+          : [],
+      );
+      const aqis =
+        airQualityHourly?.time.flatMap((time, h) =>
+          time.startsWith(date) && airQualityHourly.us_aqi[h] != null
+            ? [airQualityHourly.us_aqi[h] as number]
+            : [],
+        ) ?? [];
+      const code = daily.weather_code[i];
+
+      const parsed = ObservationSchema.safeParse(
+        withoutUndefined({
+          condition: code == null ? undefined : conditionFromWmoCode(code),
+          temperature: daily.temperature_2m_mean[i] ?? undefined,
+          windSpeed: daily.wind_speed_10m_max[i] ?? undefined,
+          humidity: daily.relative_humidity_2m_mean[i] ?? undefined,
+          visibility:
+            visibilities.length === 0
+              ? undefined
+              : visibilities.reduce((sum, v) => sum + v, 0) /
+                visibilities.length,
+          precipitationProbability:
+            daily.precipitation_probability_max[i] ?? undefined,
+          uvIndex: daily.uv_index_max[i] ?? undefined,
+          // The day's worst air quality is the one a rider is exposed to.
+          airQuality:
+            aqis.length === 0
+              ? undefined
+              : airQualityFromUsAqi(Math.max(...aqis)),
+        }),
+      );
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        throw invalidResponse(
+          issue?.path.join(".") ?? "observation",
+          issue?.message,
+        );
+      }
+      return { date, observation: parsed.data };
+    });
+
+    return {
+      days,
+      source: OPEN_METEO_SOURCE,
+      fetchedAt: this.now().toISOString(),
+    };
   }
 }
