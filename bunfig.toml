@@ -1,0 +1,3 @@
+[test]
+# A DOM for the interface's component tests.
+preload = ["./src/client/testing/dom.ts"]

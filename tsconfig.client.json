@@ -4,12 +4,12 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["vite/client"],
+    "types": ["vite/client", "bun"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "strict": true,
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/client/**/*"]
+  "include": ["src/client/**/*", "e2e/**/*", "playwright.config.ts"]
 }
