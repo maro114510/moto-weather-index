@@ -3,10 +3,7 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 
 const { app } = await import("./router");
 
-const testEnv = {
-  WEATHERAPI_KEY: "test-key",
-  DB: {} as D1Database,
-};
+const testEnv = {};
 
 describe("Not Found handler", () => {
   test("returns 404 JSON with requestId for undefined routes", async () => {
