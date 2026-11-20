@@ -1,5 +1,7 @@
 import type { ReadingCache } from "../usecase/TouringIndexService";
 
+export const READING_CACHE_TTL_SECONDS = 600;
+
 export class WorkersCacheReadingCache implements ReadingCache {
   constructor(_cache: Cache) {}
 
