@@ -3,7 +3,9 @@ import { ERROR_CODES } from "../constants/errorCodes";
 import { HttpError } from "../domain/HttpError";
 import type { AirQualityLevel, WeatherCondition } from "../domain/Weather";
 import airQualityMoment from "./fixtures/openMeteo/air-quality-moment.json";
+import airQualityWeek from "./fixtures/openMeteo/air-quality-week.json";
 import forecastMoment from "./fixtures/openMeteo/forecast-moment.json";
+import forecastWeek from "./fixtures/openMeteo/forecast-week.json";
 import { OpenMeteoWeatherClient } from "./OpenMeteoWeatherClient";
 
 const FORECAST_HOST = "api.open-meteo.com";
@@ -383,5 +385,172 @@ describe("OpenMeteoWeatherClient.getObservation rejecting invalid responses", ()
 
     expect(error.status).toBe(504);
     expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT);
+  });
+});
+
+const recordedWeek = {
+  [FORECAST_HOST]: () => json(recorded(forecastWeek)),
+  [AIR_QUALITY_HOST]: () => json(recorded(airQualityWeek)),
+};
+
+describe("OpenMeteoWeatherClient.getDailyObservations", () => {
+  test("returns one observation for each of the seven days from today in Japan Standard Time", async () => {
+    const { client } = clientWith(recordedWeek);
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    expect(reading.days.map((d) => d.date)).toEqual([
+      "2026-11-20",
+      "2026-11-21",
+      "2026-11-22",
+      "2026-11-23",
+      "2026-11-24",
+      "2026-11-25",
+      "2026-11-26",
+    ]);
+    expect(reading.source).toBe("Open-Meteo");
+    expect(reading.fetchedAt).toBe("2026-11-20T01:30:00.000Z");
+  });
+
+  test("aggregates a day into its mean temperature, humidity and visibility, and its peak wind, precipitation probability, UV index and AQI", async () => {
+    const { client } = clientWith(recordedWeek);
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    const first = reading.days[0].observation;
+    expect(first.condition).toBe("clear");
+    expect(first.temperature).toBe(10.8);
+    expect(first.windSpeed).toBe(4.2);
+    expect(first.humidity).toBe(44);
+    expect(first.precipitationProbability).toBe(8);
+    expect(first.uvIndex).toBe(3.75);
+    expect(first.visibility).toBeCloseTo(40.53, 2);
+    expect(first.airQuality).toBe("medium");
+
+    const rainy = reading.days[4].observation;
+    expect(rainy.condition).toBe("drizzle");
+    expect(rainy.windSpeed).toBe(7.17);
+    expect(rainy.precipitationProbability).toBe(77);
+    expect(rainy.visibility).toBeCloseTo(17.67, 2);
+  });
+
+  test("reports the worst air quality of the day", async () => {
+    const { client } = clientWith(recordedWeek);
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    expect(reading.days[3].observation.airQuality).toBe("high");
+  });
+
+  test("leaves air quality missing for the days beyond the air-quality horizon, not an error", async () => {
+    const { client } = clientWith(recordedWeek);
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    expect(reading.days[4].observation.airQuality).toBe("high");
+    for (const day of reading.days.slice(5)) {
+      expect("airQuality" in day.observation).toBe(false);
+      expect(day.observation.temperature).toBeDefined();
+    }
+  });
+
+  test("leaves the factors missing when the day's air-quality service is unavailable", async () => {
+    const { client } = clientWith({
+      ...recordedWeek,
+      [AIR_QUALITY_HOST]: () => json({ error: true }, 400),
+    });
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    expect(reading.days).toHaveLength(7);
+    for (const day of reading.days) {
+      expect("airQuality" in day.observation).toBe(false);
+    }
+  });
+
+  test("asks for exactly the seven days from today, with the same units and no credential", async () => {
+    const { client, requests } = clientWith(recordedWeek);
+
+    await client.getDailyObservations(tokyo);
+
+    for (const { url, init } of requests) {
+      expect(url.searchParams.get("start_date")).toBe("2026-11-20");
+      expect(url.searchParams.get("end_date")).toBe("2026-11-26");
+      expect(url.searchParams.get("timezone")).toBe("Asia/Tokyo");
+      expect(new Headers(init?.headers).has("authorization")).toBe(false);
+      expect([...url.searchParams.keys()]).not.toContain("apikey");
+    }
+    const forecast = requests.find((r) => r.url.host === FORECAST_HOST);
+    expect(forecast?.url.searchParams.get("wind_speed_unit")).toBe("ms");
+  });
+
+  test("starts at the Japan Standard Time date when UTC is still the previous day", async () => {
+    const provider = fakeProvider(recordedWeek);
+    const client = new OpenMeteoWeatherClient({
+      fetch: provider.fetch,
+      now: () => new Date("2026-11-19T16:30:00Z"),
+    });
+
+    await client.getDailyObservations(tokyo);
+
+    expect(provider.requests[0].url.searchParams.get("start_date")).toBe(
+      "2026-11-20",
+    );
+  });
+
+  test("yields a missing visibility when no hour of the day reports it", async () => {
+    const forecast = recorded(forecastWeek);
+    for (let i = 0; i < 24; i++) forecast.hourly.visibility[i] = null;
+    const { client } = clientWith({
+      ...recordedWeek,
+      [FORECAST_HOST]: () => json(forecast),
+    });
+
+    const reading = await client.getDailyObservations(tokyo);
+
+    expect("visibility" in reading.days[0].observation).toBe(false);
+    expect(reading.days[1].observation.visibility).toBeCloseTo(40.47, 2);
+  });
+
+  test("fails with 502 when the forecast omits a day of the horizon", async () => {
+    const forecast = recorded(forecastWeek);
+    for (const key of Object.keys(forecast.daily)) forecast.daily[key].pop();
+    const { client } = clientWith({
+      ...recordedWeek,
+      [FORECAST_HOST]: () => json(forecast),
+    });
+
+    const error = await client.getDailyObservations(tokyo).catch((e) => e);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(502);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE);
+  });
+
+  test("fails with 502 when a daily value is outside its documented range", async () => {
+    const forecast = recorded(forecastWeek);
+    forecast.daily.relative_humidity_2m_mean[2] = 180;
+    const { client } = clientWith({
+      ...recordedWeek,
+      [FORECAST_HOST]: () => json(forecast),
+    });
+
+    const error = await client.getDailyObservations(tokyo).catch((e) => e);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(502);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE);
+  });
+
+  test("fails with 503 when the forecast service errors", async () => {
+    const { client } = clientWith({
+      ...recordedWeek,
+      [FORECAST_HOST]: () => json({ error: true }, 500),
+    });
+
+    const error = await client.getDailyObservations(tokyo).catch((e) => e);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(503);
   });
 });
