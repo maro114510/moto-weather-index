@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { ERROR_CODES } from "../constants/errorCodes";
+import { HttpError } from "../domain/HttpError";
 import type { AirQualityLevel, WeatherCondition } from "../domain/Weather";
 import airQualityMoment from "./fixtures/openMeteo/air-quality-moment.json";
 import forecastMoment from "./fixtures/openMeteo/forecast-moment.json";
@@ -208,5 +210,178 @@ describe("OpenMeteoWeatherClient.getObservation", () => {
         expect(reading.observation.airQuality).toBe(level);
       });
     }
+  });
+});
+
+/** A fresh, mutable copy of a recorded response. */
+function recorded(body: unknown): any {
+  return structuredClone(body);
+}
+
+describe("OpenMeteoWeatherClient.getObservation with incomplete coverage", () => {
+  test("yields a missing air quality, not an error, when the air-quality value for the hour is null", async () => {
+    const airQuality = recorded(airQualityMoment);
+    airQuality.hourly.us_aqi[10] = null;
+    const { client } = clientWith({
+      ...recordedMoment,
+      [AIR_QUALITY_HOST]: () => json(airQuality),
+    });
+
+    const reading = await client.getObservation(tokyo, tenOClock);
+
+    expect(reading.observation).toEqual({
+      condition: "clear",
+      temperature: 13.1,
+      windSpeed: 3.76,
+      humidity: 35,
+      visibility: 19.22,
+      precipitationProbability: 0,
+      uvIndex: 2.8,
+    });
+    expect("airQuality" in reading.observation).toBe(false);
+  });
+
+  test("yields a missing air quality when the air-quality response has no hourly data", async () => {
+    const { client } = clientWith({
+      ...recordedMoment,
+      [AIR_QUALITY_HOST]: () => json({ latitude: 35.7, longitude: 139.8 }),
+    });
+
+    const reading = await client.getObservation(tokyo, tenOClock);
+
+    expect(reading.observation.temperature).toBe(13.1);
+    expect("airQuality" in reading.observation).toBe(false);
+  });
+
+  test("yields a missing air quality when the air-quality service is unavailable", async () => {
+    const { client } = clientWith({
+      ...recordedMoment,
+      [AIR_QUALITY_HOST]: () => json({ error: true, reason: "down" }, 503),
+    });
+
+    const reading = await client.getObservation(tokyo, tenOClock);
+
+    expect(reading.observation.temperature).toBe(13.1);
+    expect("airQuality" in reading.observation).toBe(false);
+  });
+
+  test("yields a missing factor for any other value the forecast reports as null", async () => {
+    const forecast = recorded(forecastMoment);
+    forecast.hourly.visibility[10] = null;
+    forecast.hourly.uv_index[10] = null;
+    const { client } = clientWith({
+      ...recordedMoment,
+      [FORECAST_HOST]: () => json(forecast),
+    });
+
+    const reading = await client.getObservation(tokyo, tenOClock);
+
+    expect("visibility" in reading.observation).toBe(false);
+    expect("uvIndex" in reading.observation).toBe(false);
+    expect(reading.observation.temperature).toBe(13.1);
+  });
+});
+
+describe("OpenMeteoWeatherClient.getObservation rejecting invalid responses", () => {
+  async function failureOf(
+    handlers: Partial<Record<string, Handler>>,
+  ): Promise<HttpError> {
+    const { client } = clientWith(handlers);
+    try {
+      await client.getObservation(tokyo, tenOClock);
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpError);
+      return error as HttpError;
+    }
+    throw new Error("expected the call to fail");
+  }
+
+  const invalidForecasts: [string, (f: any) => void][] = [
+    ["a forecast without hourly data", (f) => delete f.hourly],
+    ["a humidity above 100", (f) => (f.hourly.relative_humidity_2m[10] = 150)],
+    [
+      "a temperature reported as text",
+      (f) => (f.hourly.temperature_2m[10] = "warm"),
+    ],
+    ["a negative wind speed", (f) => (f.hourly.wind_speed_10m[10] = -3)],
+    [
+      "a forecast that omits the requested hour",
+      (f) => (f.hourly.time[10] = "2026-11-20T10:30"),
+    ],
+    [
+      "a weather code reported as text",
+      (f) => (f.hourly.weather_code[10] = "clear"),
+    ],
+  ];
+  for (const [name, corrupt] of invalidForecasts) {
+    test(`fails with 502 and an invalid-response code for ${name}`, async () => {
+      const forecast = recorded(forecastMoment);
+      corrupt(forecast);
+
+      const error = await failureOf({
+        ...recordedMoment,
+        [FORECAST_HOST]: () => json(forecast),
+      });
+
+      expect(error.status).toBe(502);
+      expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE);
+    });
+  }
+
+  test("fails with 502 and an invalid-response code for an air-quality value that is not a number", async () => {
+    const airQuality = recorded(airQualityMoment);
+    airQuality.hourly.us_aqi[10] = "bad";
+
+    const error = await failureOf({
+      ...recordedMoment,
+      [AIR_QUALITY_HOST]: () => json(airQuality),
+    });
+
+    expect(error.status).toBe(502);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_INVALID_RESPONSE);
+  });
+
+  test("fails with 502 and a client-error code when the forecast rejects the request", async () => {
+    const error = await failureOf({
+      ...recordedMoment,
+      [FORECAST_HOST]: () => json({ error: true, reason: "out of range" }, 400),
+    });
+
+    expect(error.status).toBe(502);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_CLIENT_ERROR);
+  });
+
+  test("fails with 503 and an unavailable code when the forecast service errors", async () => {
+    const error = await failureOf({
+      ...recordedMoment,
+      [FORECAST_HOST]: () => json({ error: true }, 500),
+    });
+
+    expect(error.status).toBe(503);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE);
+  });
+
+  test("fails with 503 and an unavailable code when the network fails", async () => {
+    const error = await failureOf({
+      ...recordedMoment,
+      [FORECAST_HOST]: () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+
+    expect(error.status).toBe(503);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_UNAVAILABLE);
+  });
+
+  test("fails with 504 and a timeout code when the forecast does not answer in time", async () => {
+    const error = await failureOf({
+      ...recordedMoment,
+      [FORECAST_HOST]: () => {
+        throw new DOMException("timed out", "TimeoutError");
+      },
+    });
+
+    expect(error.status).toBe(504);
+    expect(error.code).toBe(ERROR_CODES.WEATHER_UPSTREAM_TIMEOUT);
   });
 });
