@@ -2,7 +2,6 @@ import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
-import { ERROR_CODES } from "../constants/errorCodes";
 import { HTTP_STATUS } from "../constants/httpStatus";
 import { HttpError } from "../domain/HttpError";
 import type { AppEnv } from "../types/env";
@@ -130,9 +129,6 @@ export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
     return c.json(
       {
         error: errorMessage,
-        ...(error.code === ERROR_CODES.WEATHER_DATA_INCOMPLETE
-          ? { missingFactors: error.details?.missingFactors }
-          : {}),
         requestId: c.get("requestId"),
       },
       statusCode,
