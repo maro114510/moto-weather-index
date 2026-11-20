@@ -6,6 +6,11 @@ import { HTTP_STATUS } from "../constants/httpStatus";
 import type { AppEnv } from "../types/env";
 import { errorHandler } from "./errorHandler";
 import { healthCheck, readinessCheck } from "./handlers/healthHandler";
+import {
+  getHorizon,
+  getIndex,
+  searchPlaces,
+} from "./handlers/internalApiHandler";
 import { getPrefectures } from "./handlers/prefectureHandler";
 import {
   getTouringIndex,
@@ -59,6 +64,11 @@ app.notFound((c) => {
 
 // Internal endpoint of the single application; reachable without any binding.
 app.get("/api/status", (c) => c.json({ status: "ok" }, HTTP_STATUS.OK));
+
+// Internal endpoints the interface calls; they are not a published contract.
+app.get("/api/index", getIndex);
+app.get("/api/horizon", getHorizon);
+app.get("/api/places", searchPlaces);
 
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);

@@ -13,6 +13,9 @@ export const APP_CONFIG = {
   // furthest valid forecast date is today + (MAX_FORECAST_DAYS - 1).
   MAX_FORECAST_DAYS: 14,
 
+  // Open-Meteo serves today and the fifteen days after it.
+  OPEN_METEO_FORECAST_DAYS: 16,
+
   // WeatherAPI's history.json endpoint starts at this date. Earlier requests
   // are rejected before any upstream call.
   MIN_HISTORY_DATE: "2010-01-01",
