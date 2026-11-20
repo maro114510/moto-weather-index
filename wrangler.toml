@@ -3,6 +3,18 @@ main = 'src/worker.ts'
 compatibility_date = '2025-05-08'
 compatibility_flags = ["nodejs_compat"]
 
+# The assets directory is a build output, so a deploy from a clean checkout
+# builds the interface first.
+[build]
+command = "bun run build"
+
+# The interface is served as static assets. A request for a client route falls
+# back to the interface entry, while the Worker keeps every path it implements.
+[assets]
+directory = "./dist/client"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/health", "/health/*", "/specification", "/doc"]
+
 [vars]
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARN, ERROR
 # BATCH_START_DATE = "2025-06-15"  # Optional: Custom start date for batch processing (YYYY-MM-DD format)

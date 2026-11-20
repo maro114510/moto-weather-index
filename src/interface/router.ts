@@ -57,6 +57,9 @@ app.notFound((c) => {
   );
 });
 
+// Internal endpoint of the single application; reachable without any binding.
+app.get("/api/status", (c) => c.json({ status: "ok" }, HTTP_STATUS.OK));
+
 // Register OpenAPI routes
 app.openapi(healthRoute, healthCheck);
 app.openapi(readinessRoute, readinessCheck);

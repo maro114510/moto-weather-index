@@ -8,7 +8,17 @@ tasks:
   dev:
     desc: "Start development server"
     cmds:
-      - bun --hot src/index.ts
+      - bun run dev
+
+  build:
+    desc: "Build the interface and the Worker"
+    cmds:
+      - bun run build
+
+  typecheck:
+    desc: "Type-check the Worker and the interface"
+    cmds:
+      - bun run typecheck
 
   lint:
     desc: "Lint with Biome"
@@ -34,7 +44,8 @@ tasks:
     desc: "Run CI-equivalent checks before push/PR update"
     cmds:
       - bunx biome check --config-path .biomerc.json .
-      - bunx tsc --noEmit
+      - bun run typecheck
+      - bun run build
       - bunx wrangler deploy --dry-run
       - bun test
 
