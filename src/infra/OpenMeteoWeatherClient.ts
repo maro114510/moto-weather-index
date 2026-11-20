@@ -123,7 +123,6 @@ export class OpenMeteoWeatherClient {
 
   async getDailyObservations(
     _place: Pick<Place, "latitude" | "longitude">,
-    _startDate: string,
   ): Promise<DailyWeatherReading> {
     return { days: [], source: "", fetchedAt: "" };
   }
