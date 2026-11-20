@@ -13,7 +13,7 @@ export function json(body: unknown, status = 200): Response {
  * Replaces fetch for each test with the handler the test installs, and records
  * every URL the interface asked for.
  */
-export function useFakeApi() {
+export function installFakeApi() {
   const original = globalThis.fetch;
   const requests: URL[] = [];
   let handler: Handler = () => json({ error: "not stubbed" }, 500);
