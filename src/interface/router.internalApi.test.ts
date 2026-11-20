@@ -281,7 +281,12 @@ describe("GET /api/places", () => {
   test("returns the candidates for the query", async () => {
     const res = await get(`/api/places?q=${encodeURIComponent("渋谷")}`);
     const body = (await res.json()) as {
-      places: { name: string; region?: string }[];
+      places: {
+        name: string;
+        latitude: number;
+        longitude: number;
+        region?: string;
+      }[];
     };
 
     expect(res.status).toBe(HTTP_STATUS.OK);
