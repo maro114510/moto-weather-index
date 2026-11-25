@@ -46,7 +46,7 @@ task build      # the interface and the Worker
 task test       # unit and component tests
 ```
 
-`task ci:post-check` runs the same checks as CI. The end-to-end scenarios run with `bun run test:e2e`.
+`task ci:post-check` runs the same checks as the CI unit job. The end-to-end scenarios run with `bun run test:e2e`, which the CI end-to-end job also runs.
 
 ## Deployment
 
